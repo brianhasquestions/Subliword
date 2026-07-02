@@ -1,0 +1,58 @@
+# Robots.txt for Subliword - Speed Reading App
+# https://subliword.com
+
+# Allow all search engines
+User-agent: *
+Allow: /
+
+# Disallow access to uploads folder (temporary files)
+Disallow: /uploads/
+
+# Disallow access to socket.io internals
+Disallow: /socket.io/
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://subliword.com/sitemap.xml
+
+# Google specific
+User-agent: Googlebot
+Allow: /
+Disallow: /uploads/
+Disallow: /socket.io/
+
+# Bing specific
+User-agent: Bingbot
+Allow: /
+Disallow: /uploads/
+Disallow: /socket.io/
+
+# Google Image Bot
+User-agent: Googlebot-Image
+Allow: /images/
+Disallow: /uploads/
+
+# Allow all social media crawlers
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+# Block common bad bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
