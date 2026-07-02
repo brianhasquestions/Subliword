@@ -1,16 +1,7 @@
 node_modules/
-uploads/
 *.log
 .env
 .DS_Store
-
-# SSL certificates (keep .gitkeep)
-nginx/ssl/*.pem
-nginx/ssl/*.key
-!nginx/ssl/.gitkeep
-
-# Old certbot directory (if exists)
-certbot/
 
 # Local tooling
 .claude/
