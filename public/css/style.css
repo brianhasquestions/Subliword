@@ -12,6 +12,17 @@
   --transition: all 0.3s ease;
 }
 
+/* Light theme overrides (applied via data-theme on <html>) */
+:root[data-theme="light"] {
+  --bg-primary: #f4f4f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e6e6e9;
+  --text-primary: #1a1a1a;
+  --text-secondary: #5a5a5a;
+  --border-color: #d3d3d8;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -748,4 +759,136 @@ kbd {
   .sidebar:hover { background: var(--bg-secondary); }
   .browse-btn:active, .control-btn:active { transform: scale(0.95); }
   .drop-zone:active { border-color: var(--accent-red); background: var(--bg-tertiary); }
+}
+
+/* ===== Theme Toggle ===== */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 200;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  opacity: 0.75;
+}
+
+.theme-toggle:hover {
+  opacity: 1;
+  color: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+.theme-toggle svg { width: 20px; height: 20px; }
+
+@media (max-width: 768px) {
+  .theme-toggle { top: 12px; right: 12px; width: 38px; height: 38px; }
+}
+
+/* ===== Chapter Navigation ===== */
+.chapter-select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.chapter-select:hover { border-color: var(--accent-red); }
+
+/* ===== Toggle Switch (Warm-up) ===== */
+/* Specificity must beat `.control-group label { display: block }`. */
+.control-group label.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: var(--transition);
+}
+
+.toggle-input:checked + .toggle-switch {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+.toggle-input:checked + .toggle-switch::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.toggle-input:focus-visible + .toggle-switch {
+  outline: 2px solid var(--accent-red);
+  outline-offset: 2px;
+}
+
+/* ===== Reading Stats ===== */
+.reading-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.stat-row span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* On the mobile bottom sheet, keep the panel compact */
+@media (max-width: 768px) {
+  .reading-stats { display: none; }
+  .chapter-group { margin-bottom: 12px; }
 }

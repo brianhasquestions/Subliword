@@ -20,9 +20,18 @@ class RSVPReader {
     // Track metrics for achievements
     this.maxWpmReached = 0;
     this.totalWordsRead = 0;
+    this.maxIndexReached = 0; // Furthest word actually reached (for true completion %)
 
     // Time-based scheduling to prevent rubberbanding
     this.nextTickTime = 0;
+
+    // Warm-up: ramp from a lower speed up to the target WPM at the start of each
+    // play session so the eye can lock onto the focal point before full speed.
+    this.warmup = true;
+    this.rampStartTime = 0;
+    this.RAMP_MS = 2500;            // Duration of the ramp
+    this.RAMP_START_FRACTION = 0.5; // Begin at this fraction of target WPM
+    this.RAMP_MIN_WPM = 100;        // ...but never start below this
   }
 
   /**
@@ -38,6 +47,7 @@ class RSVPReader {
     this.isPaused = true;
     this.totalWordsRead = 0;
     this.maxWpmReached = wpm;
+    this.maxIndexReached = startIndex;
     this.render();
   }
 
@@ -90,6 +100,10 @@ class RSVPReader {
       return;
     }
 
+    if (this.currentIndex > this.maxIndexReached) {
+      this.maxIndexReached = this.currentIndex;
+    }
+
     const chunk = this.getCurrentChunk();
     const parts = this.getORP(chunk);
 
@@ -103,33 +117,79 @@ class RSVPReader {
   }
 
   /**
-   * Calculate delay between chunks based on WPM
-   * Adds extra delay for punctuation for better comprehension
-   * For chunks, multiply base delay by chunk size and check last word for punctuation
+   * Effective WPM for the current tick, applying the warm-up ramp.
+   * While warming up, speed rises from a fraction of the target up to the full
+   * target over RAMP_MS; after that (or when disabled/paused) it is the target.
+   * @returns {number}
+   */
+  getEffectiveWPM() {
+    if (!this.warmup || this.isPaused) return this.wpm;
+
+    const startWpm = Math.max(this.RAMP_MIN_WPM, this.wpm * this.RAMP_START_FRACTION);
+    if (startWpm >= this.wpm) return this.wpm; // Target already at/below the floor
+
+    const elapsed = performance.now() - this.rampStartTime;
+    if (elapsed >= this.RAMP_MS) return this.wpm;
+
+    const t = elapsed / this.RAMP_MS;
+    return startWpm + (this.wpm - startWpm) * t;
+  }
+
+  /**
+   * Length of the longest word in the given index range (for pacing).
+   */
+  longestWordLength(start, end) {
+    let max = 0;
+    for (let i = start; i < end; i++) {
+      const len = (this.words[i] || '').length;
+      if (len > max) max = len;
+    }
+    return max;
+  }
+
+  /**
+   * Calculate delay between chunks based on WPM.
+   * Applies the warm-up ramp, extra time for longer words, and pauses after
+   * punctuation — all of which improve comprehension.
    * @returns {number} Delay in milliseconds
    */
   getDelay() {
-    // 60000 ms / WPM = ms per word
-    const baseDelay = 60000 / this.wpm;
-    
+    // 60000 ms / WPM = ms per word (using the warmed-up effective speed)
+    const baseDelay = 60000 / this.getEffectiveWPM();
+
     // For chunks, get the last word in the chunk to check for punctuation
     const endIndex = Math.min(this.currentIndex + this.chunkSize, this.words.length);
     const lastWord = this.words[endIndex - 1] || '';
-    
+
     // Base delay multiplied by chunk size
     let delay = baseDelay * this.chunkSize;
-    
+
+    // Longer words take longer to recognise — add up to ~1 extra word of time
+    // for the longest word in the chunk, scaling past an 8-character threshold.
+    const longest = this.longestWordLength(this.currentIndex, endIndex);
+    if (longest > 8) {
+      delay += baseDelay * Math.min(1, (longest - 8) * 0.1);
+    }
+
     // Add extra delay for words ending with punctuation
-    const punctuation = /[.!?;:]$/;
-    const comma = /[,]$/;
-    
+    const punctuation = /[.!?;:]["')\]]?$/;
+    const comma = /[,]["')\]]?$/;
+
     if (punctuation.test(lastWord)) {
       delay += baseDelay * 1.5; // Extra pause for sentence end
     } else if (comma.test(lastWord)) {
       delay += baseDelay * 0.5; // Extra pause for comma
     }
-    
+
     return delay;
+  }
+
+  /**
+   * Enable or disable the warm-up ramp.
+   * @param {boolean} enabled
+   */
+  setWarmup(enabled) {
+    this.warmup = !!enabled;
   }
 
   /**
@@ -143,6 +203,7 @@ class RSVPReader {
     this.isPaused = false;
     // Initialize the schedule based on current time
     this.nextTickTime = performance.now();
+    this.rampStartTime = this.nextTickTime; // Restart the warm-up ramp
     this.tick();
   }
 
@@ -258,7 +319,7 @@ class RSVPReader {
    * @param {number} wpm 
    */
   setWPM(wpm) {
-    this.wpm = Math.max(50, Math.min(1000, wpm));
+    this.wpm = Math.max(50, Math.min(1500, wpm));
     if (this.wpm > this.maxWpmReached) {
       this.maxWpmReached = this.wpm;
     }
@@ -283,12 +344,13 @@ class RSVPReader {
   }
 
   /**
-   * Get completion percentage based on total words read in session
+   * Get completion percentage based on the furthest point actually reached.
+   * (Unlike totalWordsRead, this does not inflate when seeking back and forth.)
    * @returns {number}
    */
   getCompletionPercentage() {
     if (this.words.length === 0) return 0;
-    return (this.totalWordsRead / this.words.length) * 100;
+    return ((this.maxIndexReached + 1) / this.words.length) * 100;
   }
 }
 

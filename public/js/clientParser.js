@@ -32,6 +32,9 @@ const ClientParser = (function() {
   const MIN_CHUNK_WORDS = 500;
   const TARGET_CHUNK_WORDS = 2000;
   const MAX_CHUNK_WORDS = 5000;
+  // Detected chapters are navigation targets, so only fold away truly tiny
+  // sections (e.g. a "PART ONE" divider page) — keep real chapters separate.
+  const MIN_CHAPTER_WORDS = 40;
 
   // OCR settings for image-based (scanned) PDFs
   const OCR_LANG = 'eng';           // Tesseract language(s), e.g. 'eng' or 'eng+spa'
@@ -53,6 +56,9 @@ const ClientParser = (function() {
   async function parseFile(file, onProgress = () => {}) {
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     let text = '';
+    // EPUB already carries an explicit chapter structure (its spine), so it
+    // produces chapters directly rather than a flat text blob.
+    let chapters = null;
 
     onProgress(5, 'Reading file...');
     await yieldToMain();
@@ -67,6 +73,9 @@ const ClientParser = (function() {
       case '.txt':
         text = await parseTXT(file, onProgress);
         break;
+      case '.epub':
+        chapters = await parseEPUB(file, onProgress);
+        break;
       default:
         throw new Error(`Unsupported file type: ${ext}`);
     }
@@ -74,9 +83,11 @@ const ClientParser = (function() {
     onProgress(80, 'Processing text...');
     await yieldToMain();
 
-    // Process text in chunks to avoid freezing
-    const chunks = await splitIntoChunksAsync(text);
-    
+    // Process into chunks to avoid freezing (EPUB uses its own chapters).
+    const chunks = chapters
+      ? chaptersToChunks(chapters)
+      : await splitIntoChunksAsync(text);
+
     onProgress(95, 'Finalizing...');
     await yieldToMain();
     
@@ -302,6 +313,123 @@ const ClientParser = (function() {
   }
 
   /**
+   * Parse an EPUB (a zip of XHTML documents) entirely in the browser.
+   * Reads the spine order from the OPF package and treats each spine document
+   * as a chapter. Returns an array of { title, content } chapters.
+   */
+  async function parseEPUB(file, onProgress) {
+    await waitForJSZip();
+
+    onProgress(10, 'Opening EPUB...');
+    await yieldToMain();
+
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const xml = (s) => new DOMParser().parseFromString(s, 'application/xml');
+
+    // 1. Locate the OPF package file via META-INF/container.xml
+    const containerFile = zip.file('META-INF/container.xml');
+    if (!containerFile) throw new Error('Invalid EPUB: missing container.xml');
+    const rootfile = xml(await containerFile.async('string')).querySelector('rootfile');
+    const opfPath = rootfile && rootfile.getAttribute('full-path');
+    if (!opfPath) throw new Error('Invalid EPUB: no package file found');
+
+    const opfEntry = zip.file(opfPath);
+    if (!opfEntry) throw new Error('Invalid EPUB: package file is missing');
+    const opf = xml(await opfEntry.async('string'));
+
+    // Paths inside the OPF are relative to the OPF's own directory
+    const baseDir = opfPath.includes('/') ? opfPath.replace(/[^/]+$/, '') : '';
+
+    // 2. Build the manifest (id -> href) and read the spine (reading order)
+    const manifest = {};
+    opf.querySelectorAll('manifest > item').forEach((item) => {
+      const id = item.getAttribute('id');
+      const href = item.getAttribute('href');
+      if (id && href) manifest[id] = href;
+    });
+
+    const spineHrefs = Array.from(opf.querySelectorAll('spine > itemref'))
+      .map((ref) => manifest[ref.getAttribute('idref')])
+      .filter(Boolean);
+
+    if (spineHrefs.length === 0) throw new Error('EPUB has no readable content');
+
+    // 3. Read each spine document, strip markup, keep as a chapter
+    const chapters = [];
+    for (let i = 0; i < spineHrefs.length; i++) {
+      if (i % 5 === 0) {
+        onProgress(10 + Math.round((i / spineHrefs.length) * 60),
+          `Reading section ${i + 1} of ${spineHrefs.length}...`);
+        await yieldToMain();
+      }
+
+      const href = decodeURIComponent(spineHrefs[i].split('#')[0]);
+      const entry = zip.file(baseDir + href) || zip.file(href);
+      if (!entry) continue;
+
+      const { title, text } = extractEpubDoc(await entry.async('string'));
+      if (text.trim().length === 0) continue;
+
+      chapters.push({ title: title || `Section ${chapters.length + 1}`, content: text });
+    }
+
+    if (chapters.length === 0) throw new Error('No readable text found in EPUB');
+    return chapters;
+  }
+
+  /**
+   * Extract a title + plain text from one EPUB (X)HTML document.
+   */
+  function extractEpubDoc(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script, style').forEach((el) => el.remove());
+
+    const headingEl = doc.querySelector('h1, h2, h3, title');
+    const title = headingEl
+      ? headingEl.textContent.trim().replace(/\s+/g, ' ').slice(0, 80)
+      : '';
+
+    const body = doc.body || doc.documentElement;
+    // Preserve block boundaries so words from adjacent blocks don't fuse
+    body.querySelectorAll('p, div, br, li, tr, h1, h2, h3, h4, h5, h6')
+      .forEach((el) => el.insertAdjacentText('afterend', '\n'));
+
+    return { title, text: (body.textContent || '').replace(/\r/g, '') };
+  }
+
+  /**
+   * Convert pre-detected chapters (from EPUB) into sized reading chunks,
+   * reusing the same sizing logic used for detected text chapters.
+   */
+  function chaptersToChunks(chapters) {
+    if (chapters.length > 1) return processChapters(chapters);
+    return splitBySize(chapters[0] ? chapters[0].content : '');
+  }
+
+  /**
+   * Wait for the JSZip library to be available (loaded async/deferred).
+   */
+  function waitForJSZip(timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+      if (typeof JSZip !== 'undefined') {
+        resolve();
+        return;
+      }
+      const start = Date.now();
+      const interval = setInterval(() => {
+        if (typeof JSZip !== 'undefined') {
+          clearInterval(interval);
+          resolve();
+        } else if (Date.now() - start > timeoutMs) {
+          clearInterval(interval);
+          reject(new Error('EPUB library (JSZip) failed to load. Check your connection and try again.'));
+        }
+      }, 100);
+    });
+  }
+
+  /**
    * Split text into chapters or meaningful chunks asynchronously
    */
   async function splitIntoChunksAsync(text) {
@@ -389,8 +517,8 @@ const ClientParser = (function() {
       if (words.length > MAX_CHUNK_WORDS) {
         const subChunks = splitWordsIntoChunks(words, chapter.title);
         result.push(...subChunks);
-      } else if (words.length < MIN_CHUNK_WORDS && result.length > 0) {
-        // Merge small chunks with previous
+      } else if (words.length < MIN_CHAPTER_WORDS && result.length > 0) {
+        // Fold a tiny section (divider/heading page) into the previous chapter
         const lastChunk = result[result.length - 1];
         lastChunk.words = lastChunk.words.concat(words);
         lastChunk.title = `${lastChunk.title} & ${chapter.title}`;

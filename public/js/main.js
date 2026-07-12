@@ -11,6 +11,37 @@
   const SPEED_DEMON_WPM = 500;
   const BOOKWORM_PERCENT = 90;
   const MARATHON_WORDS = 1000;
+  const BASELINE_WPM = 250;        // Average reading speed, used for "time saved"
+  const POSITION_SAVE_MS = 1500;   // Throttle for persisting reading position
+
+  const STORE_KEYS = {
+    prefs: 'subliword.prefs',
+    theme: 'subliword.theme',
+    positions: 'subliword.positions'
+  };
+
+  // ===== Persistence helpers (localStorage, best-effort) =====
+  const store = {
+    load(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    },
+    save(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (e) { /* private mode / quota — ignore */ }
+    }
+  };
+
+  const prefs = Object.assign(
+    { wpm: 300, chunkSize: 1, warmup: true },
+    store.load(STORE_KEYS.prefs, {})
+  );
+  function savePrefs() { store.save(STORE_KEYS.prefs, prefs); }
 
   // ===== DOM Elements =====
   const UI = {
@@ -46,8 +77,22 @@
       wpmDisplay: document.getElementById('wpm-display'),
       chunkSlider: document.getElementById('chunk-slider'),
       chunkDisplay: document.getElementById('chunk-display'),
+      warmupToggle: document.getElementById('warmup-toggle'),
+      chapterGroup: document.getElementById('chapter-group'),
+      chapterSelect: document.getElementById('chapter-select'),
       sidebar: document.getElementById('sidebar'),
       sidebarToggle: document.getElementById('sidebar-toggle')
+    },
+    stats: {
+      words: document.getElementById('stat-words'),
+      wpm: document.getElementById('stat-wpm'),
+      saved: document.getElementById('stat-saved')
+    },
+    theme: {
+      toggle: document.getElementById('theme-toggle'),
+      sun: document.getElementById('theme-icon-sun'),
+      moon: document.getElementById('theme-icon-moon'),
+      meta: document.querySelector('meta[name="theme-color"]')
     },
     achievements: document.getElementById('achievement-container')
   };
@@ -56,6 +101,9 @@
   let reader = null;
   let progressIndicator = null;
   let librariesLoaded = false;
+  let currentChapters = [];   // [{ title, startIndex, wordCount }]
+  let currentDocId = null;    // Identity of the loaded doc, for position persistence
+  let lastPositionSave = 0;
   
   // Achievement tracking
   const achievements = {
@@ -68,9 +116,23 @@
   // ===== Initialize =====
   function init() {
     reader = new RSVPReader();
+    applyStoredPreferences();
     setupEventListeners();
+    setupThemeToggle();
     createProgressIndicator();
     checkLibrariesLoaded();
+  }
+
+  // Reflect saved preferences (WPM, chunk size, warm-up) into the controls.
+  function applyStoredPreferences() {
+    const { wpmSlider, wpmDisplay, chunkSlider, chunkDisplay, warmupToggle } = UI.controls;
+
+    wpmSlider.value = prefs.wpm;
+    wpmDisplay.textContent = prefs.wpm;
+    chunkSlider.value = prefs.chunkSize;
+    chunkDisplay.textContent = prefs.chunkSize;
+    warmupToggle.checked = prefs.warmup;
+    reader.setWarmup(prefs.warmup);
   }
 
   // ===== Check External Libraries =====
@@ -179,7 +241,8 @@
   }
 
   function setupPlaybackControls() {
-    const { playPause, prevSentence, nextSentence, wpmSlider, chunkSlider } = UI.controls;
+    const { playPause, prevSentence, nextSentence, wpmSlider, chunkSlider,
+            warmupToggle, chapterSelect } = UI.controls;
     const { bar } = UI.reading.progress;
 
     playPause.addEventListener('click', togglePlayPause);
@@ -188,6 +251,23 @@
     wpmSlider.addEventListener('input', handleWPMChange);
     chunkSlider.addEventListener('input', handleChunkSizeChange);
     bar.addEventListener('input', handleProgressChange);
+
+    warmupToggle.addEventListener('change', (e) => {
+      prefs.warmup = e.target.checked;
+      reader.setWarmup(prefs.warmup);
+      savePrefs();
+    });
+
+    chapterSelect.addEventListener('change', (e) => {
+      const index = parseInt(e.target.value, 10);
+      if (!Number.isNaN(index)) reader.goTo(index);
+    });
+
+    // Persist reading position when the page is hidden or unloaded
+    window.addEventListener('pagehide', saveReadingPosition);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveReadingPosition();
+    });
   }
 
   function setupNavigation() {
@@ -306,7 +386,7 @@
           break;
         case 'ArrowUp':
           e.preventDefault();
-          wpmSlider.value = Math.min(1000, parseInt(wpmSlider.value) + 25);
+          wpmSlider.value = Math.min(1500, parseInt(wpmSlider.value) + 25);
           handleWPMChange({ target: wpmSlider });
           break;
         case 'ArrowDown':
@@ -324,15 +404,48 @@
     reader.onComplete = handleComplete;
   }
 
+  // ===== Theme =====
+  function setupThemeToggle() {
+    // The <head> script already applied the initial theme; sync the icon to it.
+    updateThemeIcon(getCurrentTheme());
+    UI.theme.toggle.addEventListener('click', () => {
+      const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+    });
+  }
+
+  function getCurrentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    // Store the raw string (not JSON) so the <head> pre-paint script can read it directly.
+    try { localStorage.setItem(STORE_KEYS.theme, theme); } catch (e) { /* ignore */ }
+    if (UI.theme.meta) UI.theme.meta.setAttribute('content', theme === 'light' ? '#f5f5f5' : '#0d0d0d');
+    updateThemeIcon(theme);
+  }
+
+  function updateThemeIcon(theme) {
+    // Show the icon of the theme you'd switch TO.
+    const { sun, moon } = UI.theme;
+    if (!sun || !moon) return;
+    sun.classList.toggle('hidden', theme !== 'dark');
+    moon.classList.toggle('hidden', theme === 'dark');
+  }
+
   // ===== File Handling =====
   async function handleFile(file) {
-    const validTypes = ['.pdf', '.docx', '.txt'];
+    const validTypes = ['.pdf', '.docx', '.epub', '.txt'];
     const ext = '.' + file.name.split('.').pop().toLowerCase();
-    
+
     if (!validTypes.includes(ext)) {
-      showError('Invalid file type. Please upload a PDF, DOCX, or TXT file.');
+      showError('Invalid file type. Please upload a PDF, DOCX, EPUB, or TXT file.');
       return;
     }
+
+    // Identify this document so we can resume where the reader left off.
+    currentDocId = `${file.name}:${file.size}`;
 
     // Check if libraries are loaded
     if (!librariesLoaded) {
@@ -363,14 +476,21 @@
       });
 
       const parseTime = ((performance.now() - startTime) / 1000).toFixed(2);
-      
-      // Flatten chunks into a single word array
+
+      // Flatten chunks into a single word array, keeping chapter boundaries
+      // (title + start index) for the chapter navigator.
       const words = [];
-      for (const chunk of result.chunks) {
+      currentChapters = result.chunks.map((chunk) => {
+        const startIndex = words.length;
         for (let i = 0; i < chunk.words.length; i++) {
           words.push(chunk.words[i]);
         }
-      }
+        return {
+          title: chunk.title || `Section ${startIndex + 1}`,
+          startIndex,
+          wordCount: chunk.words.length
+        };
+      });
 
       hideProgressIndicator();
       startReading(words);
@@ -390,17 +510,83 @@
       resetUIForError();
       return;
     }
-    
+
     const wpm = parseInt(UI.controls.wpmSlider.value);
-    reader.init(words, 0, wpm);
-    
+    const startIndex = restoredStartIndex(words.length);
+    reader.init(words, startIndex, wpm);
+    reader.setChunkSize(parseInt(UI.controls.chunkSlider.value, 10));
+    reader.setWarmup(prefs.warmup);
+
     // Update UI state
     UI.reading.progress.total.textContent = words.length;
     UI.reading.progress.bar.max = Math.max(0, words.length - 1);
-    
+    UI.reading.progress.bar.value = startIndex;
+    UI.reading.progress.current.textContent = startIndex + 1;
+
+    buildChapterSelect();
+    updateStats();
+
     UI.pages.landing.classList.remove('active');
     UI.pages.reading.classList.add('active');
     UI.upload.spinner.classList.add('hidden');
+
+    if (startIndex > 0) {
+      showAchievement('resume', '🔖', 'Welcome back', 'Resumed where you left off.');
+    }
+  }
+
+  // Where to start: a saved position for this document, unless it was finished.
+  function restoredStartIndex(total) {
+    const positions = store.load(STORE_KEYS.positions, {});
+    const saved = currentDocId ? positions[currentDocId] : 0;
+    if (typeof saved === 'number' && saved > 0 && saved < total - 1) {
+      return saved;
+    }
+    return 0;
+  }
+
+  function saveReadingPosition() {
+    if (!currentDocId || !reader || reader.words.length === 0) return;
+    const positions = store.load(STORE_KEYS.positions, {});
+    positions[currentDocId] = reader.currentIndex;
+    store.save(STORE_KEYS.positions, positions);
+    lastPositionSave = Date.now();
+  }
+
+  // ===== Chapter Navigation =====
+  function buildChapterSelect() {
+    const { chapterGroup, chapterSelect } = UI.controls;
+    chapterSelect.innerHTML = '';
+
+    if (currentChapters.length <= 1) {
+      chapterGroup.classList.add('hidden');
+      return;
+    }
+
+    currentChapters.forEach((chapter, i) => {
+      const option = document.createElement('option');
+      option.value = chapter.startIndex;
+      const title = chapter.title.length > 40 ? chapter.title.slice(0, 39) + '…' : chapter.title;
+      option.textContent = `${i + 1}. ${title}`;
+      chapterSelect.appendChild(option);
+    });
+
+    chapterGroup.classList.remove('hidden');
+    updateChapterSelection(reader.currentIndex);
+  }
+
+  // Highlight the chapter that contains the given word index.
+  function updateChapterSelection(index) {
+    if (currentChapters.length <= 1) return;
+    let active = 0;
+    for (let i = 0; i < currentChapters.length; i++) {
+      if (index >= currentChapters[i].startIndex) active = i;
+      else break;
+    }
+    const value = String(currentChapters[active].startIndex);
+    if (UI.controls.chapterSelect.value !== value) {
+      UI.controls.chapterSelect.value = value;
+    }
   }
 
   // ===== UI Updates =====
@@ -415,12 +601,45 @@
     const { current, bar } = UI.reading.progress;
     current.textContent = index + 1;
     bar.value = index;
+    updateChapterSelection(index);
+    updateStats();
     checkAchievements();
+
+    // Persist position periodically while reading
+    if (Date.now() - lastPositionSave > POSITION_SAVE_MS) {
+      saveReadingPosition();
+    }
+  }
+
+  // ===== Reading Stats =====
+  function updateStats() {
+    if (!reader) return;
+    const { words, wpm, saved } = UI.stats;
+    const wordsRead = reader.totalWordsRead;
+
+    if (words) words.textContent = wordsRead.toLocaleString();
+    if (wpm) wpm.textContent = `${reader.maxWpmReached} WPM`;
+    if (saved) saved.textContent = formatDuration(timeSavedSeconds(wordsRead, reader.wpm));
+  }
+
+  // Approximate time saved versus an average reader, in seconds.
+  function timeSavedSeconds(wordsRead, wpm) {
+    if (wpm <= BASELINE_WPM) return 0;
+    return wordsRead * (60 / BASELINE_WPM - 60 / wpm);
+  }
+
+  function formatDuration(seconds) {
+    const s = Math.max(0, Math.round(seconds));
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return rem ? `${m}m ${rem}s` : `${m}m`;
   }
 
   function togglePlayPause() {
     reader.toggle();
     updatePlayPauseIcon();
+    if (reader.isPaused) saveReadingPosition();
   }
 
   function updatePlayPauseIcon() {
@@ -438,6 +657,9 @@
     const wpm = parseInt(e.target.value);
     reader.setWPM(wpm);
     UI.controls.wpmDisplay.textContent = wpm;
+    prefs.wpm = wpm;
+    savePrefs();
+    updateStats();
 
     if (wpm > SPEED_DEMON_WPM && !achievements.speedDemon) {
       showAchievement('speedDemon', '⚡', 'Speed Demon', `Reached over ${SPEED_DEMON_WPM} WPM!`);
@@ -448,6 +670,8 @@
     const chunkSize = parseInt(e.target.value);
     reader.setChunkSize(chunkSize);
     UI.controls.chunkDisplay.textContent = chunkSize;
+    prefs.chunkSize = chunkSize;
+    savePrefs();
   }
 
   function handleProgressChange(e) {
@@ -461,7 +685,9 @@
 
   function handleComplete() {
     updatePlayPauseIcon();
-    
+    updateStats();
+    saveReadingPosition();
+
     const completion = reader.getCompletionPercentage();
     if (completion >= BOOKWORM_PERCENT && !achievements.bookworm) {
       showAchievement('bookworm', '📚', 'Bookworm', `Completed over ${BOOKWORM_PERCENT}% of the document!`);
@@ -471,9 +697,16 @@
   // ===== Navigation & State Management =====
   function goToLanding() {
     reader.pause();
+    updatePlayPauseIcon();
+    saveReadingPosition(); // Remember where we were in the current document
+
+    currentChapters = [];
+    currentDocId = null;
+    UI.controls.chapterGroup.classList.add('hidden');
+
     UI.pages.reading.classList.remove('active');
     UI.pages.landing.classList.add('active');
-    
+
     resetUIForError(); // Reuses logic to show dropzone
     hideProgressIndicator();
     UI.upload.fileInput.value = '';

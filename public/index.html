@@ -9,7 +9,7 @@
   <!-- Primary SEO Meta Tags -->
   <title>Subliword - Free Speed Reading App | Read Faster with RSVP Technology</title>
   <meta name="title" content="Subliword - Free Speed Reading App | Read Faster with RSVP Technology">
-  <meta name="description" content="Boost your reading speed up to 3x with Subliword's free RSVP speed reading app. Upload PDF, DOCX, or TXT files and train your brain to read faster. No signup required.">
+  <meta name="description" content="Boost your reading speed up to 3x with Subliword's free RSVP speed reading app. Upload PDF, DOCX, EPUB, or TXT files and train your brain to read faster. No signup required.">
   <meta name="keywords" content="speed reading, RSVP, rapid serial visual presentation, reading app, read faster, speed reading training, pdf reader, docx reader, free speed reading, reading speed improvement, speed reading software, online reading tool">
   <meta name="author" content="Subliword">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -21,7 +21,7 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://subliword.com/">
   <meta property="og:title" content="Subliword - Free Speed Reading App | Read Faster with RSVP Technology">
-  <meta property="og:description" content="Boost your reading speed up to 3x with Subliword's free RSVP speed reading app. Upload PDF, DOCX, or TXT files and train your brain to read faster.">
+  <meta property="og:description" content="Boost your reading speed up to 3x with Subliword's free RSVP speed reading app. Upload PDF, DOCX, EPUB, or TXT files and train your brain to read faster.">
   <meta property="og:image" content="https://subliword.com/images/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -33,7 +33,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://subliword.com/">
   <meta name="twitter:title" content="Subliword - Free Speed Reading App | Read Faster with RSVP">
-  <meta name="twitter:description" content="Boost your reading speed up to 3x with Subliword's free RSVP speed reading app. Upload PDF, DOCX, or TXT files and train your brain to read faster.">
+  <meta name="twitter:description" content="Boost your reading speed up to 3x with Subliword's free RSVP speed reading app. Upload PDF, DOCX, EPUB, or TXT files and train your brain to read faster.">
   <meta name="twitter:image" content="https://subliword.com/images/twitter-card.png">
   <meta name="twitter:image:alt" content="Subliword Speed Reading App">
   <meta name="twitter:creator" content="@subliword">
@@ -60,6 +60,22 @@
   <!-- Preconnect for Performance -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  <!-- Apply saved theme before paint to avoid a flash of the wrong theme -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('subliword.theme');
+        var theme = stored || (window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   
   <!-- Preload Critical Resources -->
   <link rel="preload" href="css/style.css" as="style">
@@ -76,18 +92,17 @@
       "@type": "WebApplication",
       "name": "Subliword",
       "alternateName": "Subliword Speed Reader",
-      "description": "A free speed reading application using RSVP (Rapid Serial Visual Presentation) technology to help users read faster. Supports PDF, DOCX, and TXT files.",
+      "description": "A free speed reading application using RSVP (Rapid Serial Visual Presentation) technology to help users read faster. Supports PDF, DOCX, EPUB, and TXT files, including scanned PDFs via OCR.",
       "url": "https://subliword.com",
       "applicationCategory": "EducationalApplication",
       "applicationSubCategory": "Reading",
       "operatingSystem": "Any",
       "browserRequirements": "Requires JavaScript. Requires HTML5.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "featureList": ["RSVP Speed Reading", "PDF Document Support", "DOCX Document Support", "TXT File Support", "Adjustable Reading Speed (50-1000 WPM)", "Progress Tracking", "Keyboard Shortcuts", "No Account Required", "Privacy Focused"],
+      "featureList": ["RSVP Speed Reading", "PDF Document Support", "DOCX Document Support", "EPUB Document Support", "TXT File Support", "Scanned PDF OCR", "Chapter Navigation", "Adjustable Reading Speed (50-1500 WPM)", "Warm-up Ramp", "Progress Tracking", "Reading Statistics", "Dark & Light Themes", "Offline Support (PWA)", "Keyboard Shortcuts", "No Account Required", "Privacy Focused"],
       "screenshot": "https://subliword.com/images/screenshot.png",
       "softwareVersion": "1.0",
-      "author": { "@type": "Organization", "name": "Subliword" },
-      "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "150", "bestRating": "5", "worstRating": "1" }
+      "author": { "@type": "Organization", "name": "Subliword" }
     },
     {
       "@context": "https://schema.org",
@@ -104,25 +119,16 @@
       "@type": "FAQPage",
       "mainEntity": [
         { "@type": "Question", "name": "What is RSVP speed reading?", "acceptedAnswer": { "@type": "Answer", "text": "RSVP (Rapid Serial Visual Presentation) is a speed reading technique that displays words one at a time at a fixed focal point. This eliminates eye movement and allows readers to focus solely on comprehension, potentially increasing reading speed by 2-3 times." } },
-        { "@type": "Question", "name": "What file formats does Subliword support?", "acceptedAnswer": { "@type": "Answer", "text": "Subliword supports PDF, DOCX (Microsoft Word), and TXT (plain text) file formats. Simply drag and drop your file or click browse to upload." } },
+        { "@type": "Question", "name": "What file formats does Subliword support?", "acceptedAnswer": { "@type": "Answer", "text": "Subliword supports PDF, DOCX (Microsoft Word), EPUB (e-books), and TXT (plain text) file formats. Scanned, image-based PDFs are read automatically with OCR. Simply drag and drop your file or click browse to upload." } },
         { "@type": "Question", "name": "Is Subliword free to use?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, Subliword is completely free to use. No account registration or payment is required. Simply upload your document and start speed reading." } },
         { "@type": "Question", "name": "Is my data safe with Subliword?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, your privacy is our priority. Uploaded documents are processed temporarily and automatically deleted. We don't store your files or require any personal information. Read our Privacy Policy for more details." } },
-        { "@type": "Question", "name": "What reading speeds are available?", "acceptedAnswer": { "@type": "Answer", "text": "Subliword allows you to adjust your reading speed from 50 to 1000 words per minute (WPM). The average person reads at about 200-250 WPM, so even moderate practice can significantly increase your speed." } }
+        { "@type": "Question", "name": "What reading speeds are available?", "acceptedAnswer": { "@type": "Answer", "text": "Subliword allows you to adjust your reading speed from 50 to 1500 words per minute (WPM). The average person reads at about 200-250 WPM, so even moderate practice can significantly increase your speed." } }
       ]
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [{ "@type": "ListItem", "position": 1, "name": "Home", "item": "https://subliword.com/" }]
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Subliword Speed Reading App",
-      "operatingSystem": "Web Browser",
-      "applicationCategory": "EducationalApplication",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "150" }
     }
   ]
   </script>
@@ -157,8 +163,24 @@
         <line x1="12" y1="18" x2="12" y2="12"/>
         <line x1="9" y1="15" x2="15" y2="15"/>
       </symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </symbol>
     </defs>
   </svg>
+
+  <!-- Global Theme Toggle -->
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light or dark theme" title="Toggle theme">
+    <svg id="theme-icon-sun" class="hidden" aria-hidden="true"><use href="#icon-sun"></use></svg>
+    <svg id="theme-icon-moon" aria-hidden="true"><use href="#icon-moon"></use></svg>
+  </button>
 
   <!-- Landing Page -->
   <main id="main-content">
@@ -176,10 +198,10 @@
             <div class="drop-zone-content">
               <svg class="upload-icon" aria-hidden="true"><use href="#icon-upload"></use></svg>
               <p id="upload-instructions">Drag & drop your file here</p>
-              <p class="supported-formats">PDF, DOCX, or TXT</p>
+              <p class="supported-formats">PDF, DOCX, EPUB, or TXT</p>
               <span class="or-divider">or</span>
               <button type="button" class="browse-btn" id="browse-btn" aria-label="Browse files from your computer">Browse Files</button>
-              <input type="file" id="file-input" accept=".pdf,.docx,.txt" hidden aria-label="File input">
+              <input type="file" id="file-input" accept=".pdf,.docx,.epub,.txt" hidden aria-label="File input">
             </div>
           </div>
           
@@ -225,7 +247,13 @@
 
           <div class="sidebar-content">
             <h2>Controls</h2>
-            
+
+            <!-- Chapter Navigation (shown only when the document has chapters) -->
+            <div class="control-group chapter-group hidden" id="chapter-group">
+              <label for="chapter-select">Chapter</label>
+              <select id="chapter-select" class="chapter-select" aria-label="Jump to chapter"></select>
+            </div>
+
             <!-- Playback Controls -->
             <div class="control-group" role="group" aria-label="Playback controls">
               <div class="playback-controls">
@@ -245,13 +273,29 @@
             <!-- WPM Control -->
             <div class="control-group">
               <label for="wpm-slider">Speed: <span id="wpm-display">300</span> WPM</label>
-              <input type="range" id="wpm-slider" class="wpm-slider" min="50" max="1000" value="300" step="10" aria-valuemin="50" aria-valuemax="1000" aria-valuenow="300">
+              <input type="range" id="wpm-slider" class="wpm-slider" min="50" max="1500" value="300" step="10" aria-valuemin="50" aria-valuemax="1500" aria-valuenow="300">
             </div>
 
             <!-- Chunk Size Control -->
             <div class="control-group">
               <label for="chunk-slider">Words per chunk: <span id="chunk-display">1</span></label>
               <input type="range" id="chunk-slider" class="chunk-slider" min="1" max="10" value="1" step="1" aria-valuemin="1" aria-valuemax="10" aria-valuenow="1">
+            </div>
+
+            <!-- Warm-up Toggle -->
+            <div class="control-group">
+              <label class="toggle-row" for="warmup-toggle">
+                <span>Warm-up ramp</span>
+                <input type="checkbox" id="warmup-toggle" class="toggle-input" checked>
+                <span class="toggle-switch" aria-hidden="true"></span>
+              </label>
+            </div>
+
+            <!-- Reading Stats -->
+            <div class="control-group reading-stats" aria-label="Reading statistics">
+              <div class="stat-row"><span>Words read</span><span id="stat-words">0</span></div>
+              <div class="stat-row"><span>Top speed</span><span id="stat-wpm">0 WPM</span></div>
+              <div class="stat-row"><span>Time saved</span><span id="stat-saved">0s</span></div>
             </div>
 
             <!-- New Document -->
@@ -288,15 +332,36 @@
     <a href="/privacy.html" class="global-privacy-link">Privacy</a>
   </footer>
 
-  <!-- External Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
+  <!-- External Libraries (Subresource Integrity pins the exact bytes we tested) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+    integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
+    integrity="sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz"
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+  <!-- JSZip: unzips EPUB e-books in the browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+    integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
   <!-- Tesseract.js: OCR fallback for image-based (scanned) PDFs -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"
+    integrity="sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F"
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+
   <!-- App Scripts -->
   <script src="js/rsvp.js" defer></script>
   <script src="js/clientParser.js" defer></script>
   <script src="js/main.js" defer></script>
+
+  <!-- Register the service worker for offline / installable (PWA) support -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function (err) {
+          console.warn('Service worker registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "name": "Subliword - Speed Reading App",
   "short_name": "Subliword",
-  "description": "Free RSVP speed reading application. Upload PDF, DOCX, or TXT files and train your brain to read faster. No signup required.",
+  "description": "Free RSVP speed reading application. Upload PDF, DOCX, EPUB, or TXT files and train your brain to read faster. No signup required.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0d0d",
@@ -80,35 +80,12 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/images/screenshot-desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Subliword Desktop View - Speed Reading Interface"
-    },
-    {
-      "src": "/images/screenshot-mobile.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Subliword Mobile View - Upload Documents"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Upload Document",
       "short_name": "Upload",
       "description": "Upload a new document for speed reading",
-      "url": "/?action=upload",
-      "icons": [
-        {
-          "src": "/icons/upload-icon.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
+      "url": "/?action=upload"
     }
   ],
   "related_applications": [],

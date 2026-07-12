@@ -6,19 +6,28 @@ A speed-reading web app using RSVP (Rapid Serial Visual Presentation). Upload a 
 
 ## Features
 
-- **RSVP reading** — words flash at a fixed focal point with adjustable WPM
-- **PDF, DOCX, and TXT support** — parsed entirely in your browser
+- **RSVP reading** — words flash at a fixed focal point with adjustable WPM (50–1500)
+- **Warm-up ramp** — each play session eases from a lower speed up to your target so your eyes lock on
+- **Word-length & punctuation pacing** — longer words and sentence ends get a touch more time
+- **PDF, DOCX, EPUB, and TXT support** — parsed entirely in your browser
 - **Scanned PDF support** — image-based pages are read with OCR (Tesseract.js), automatically and per-page
-- **Chapter detection** — documents are split into chapters/sections for easy navigation
+- **Chapter navigation** — detected chapters (and EPUB spine sections) are listed for one-click jumping
+- **Resume where you left off** — reading position, WPM, chunk size, warm-up, and theme are remembered per device
+- **Reading stats** — words read, top speed, and estimated time saved versus an average reader
+- **Dark & light themes** — follows your system preference, with a manual toggle
+- **Installable PWA / offline** — a service worker caches the app (and libraries after first use) so it works offline
 - **100% client-side** — no server, no uploads; your documents never leave your device
 
 ## Tech
 
-Plain HTML/CSS/vanilla JS, no build step. External libraries (loaded from CDN):
+Plain HTML/CSS/vanilla JS, no build step. External libraries (loaded from CDN, pinned with Subresource Integrity):
 
 - [PDF.js](https://mozilla.github.io/pdf.js/) — PDF text extraction and page rendering
 - [Mammoth.js](https://github.com/mwilliamson/mammoth.js) — DOCX text extraction
+- [JSZip](https://stuk.github.io/jszip/) — unzips EPUB e-books in the browser
 - [Tesseract.js](https://tesseract.projectnaptha.com/) — OCR for scanned/image-based PDF pages
+
+> **Offline note:** the first OCR of a scanned PDF needs a connection (Tesseract downloads its engine and language data on demand); once fetched, they're cached for offline reuse.
 
 ## Development
 
