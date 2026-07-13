@@ -379,6 +379,17 @@
   <!-- Register the service worker for offline / installable (PWA) support -->
   <script>
     if ('serviceWorker' in navigator) {
+      // When an *updated* service worker takes control, reload once so the page
+      // and its cached CSS/JS come from the same (new) version — this prevents
+      // a stale stylesheet from being paired with fresh HTML after a deploy.
+      // (Skip on first-ever visit, where there was no previous controller.)
+      var hadController = !!navigator.serviceWorker.controller;
+      var swRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (swRefreshing || !hadController) return;
+        swRefreshing = true;
+        window.location.reload();
+      });
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js').catch(function (err) {
           console.warn('Service worker registration failed:', err);

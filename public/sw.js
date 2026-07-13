@@ -13,7 +13,7 @@
  * Tesseract downloads its engine and language data on demand; once fetched they
  * are cached and subsequent scanned-PDF reads work offline.
  */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const APP_CACHE = `subliword-app-${VERSION}`;
 const RUNTIME_CACHE = `subliword-runtime-${VERSION}`;
 
@@ -55,44 +55,50 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Cache-first: serve from cache, otherwise fetch and cache. For cross-origin
+// CDN assets that rarely change (library bytes are pinned by SRI/version).
+function cacheFirst(req, cacheName) {
+  return caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+    if (res && (res.status === 200 || res.type === 'opaque')) {
+      const copy = res.clone();
+      caches.open(cacheName).then((cache) => cache.put(req, copy));
+    }
+    return res;
+  }).catch(() => cached));
+}
+
+// Stale-while-revalidate: serve cache immediately (fast) while refreshing it in
+// the background. Every same-origin request in a given page load comes from the
+// same cache generation, so HTML and its CSS/JS never mismatch across a deploy.
+function staleWhileRevalidate(req, cacheName) {
+  return caches.open(cacheName).then((cache) =>
+    cache.match(req).then((cached) => {
+      const network = fetch(req).then((res) => {
+        if (res && res.status === 200) cache.put(req, res.clone());
+        return res;
+      }).catch(() => cached);
+      return cached || network;
+    })
+  );
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
 
-  // Navigations: prefer fresh network, fall back to cache / app shell offline.
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).catch(() =>
-        caches.match(req).then((cached) => cached || caches.match('/index.html'))
-      )
-    );
-    return;
-  }
-
-  // Cross-origin CDN assets: cache-first into the runtime cache.
+  // Cross-origin CDN assets (libraries, Tesseract engine + data): cache-first.
   if (url.origin !== self.location.origin) {
-    event.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-        if (res && (res.status === 200 || res.type === 'opaque')) {
-          const copy = res.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(req, copy));
-        }
-        return res;
-      }).catch(() => cached))
-    );
+    event.respondWith(cacheFirst(req, RUNTIME_CACHE));
     return;
   }
 
-  // Same-origin static assets: cache-first, then network (and cache the result).
+  // Same-origin app shell (HTML, CSS, JS, icons): stale-while-revalidate so the
+  // page and its assets stay in sync, with an offline fallback for navigations.
   event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-      if (res && res.status === 200) {
-        const copy = res.clone();
-        caches.open(APP_CACHE).then((cache) => cache.put(req, copy));
-      }
-      return res;
-    }))
+    staleWhileRevalidate(req, APP_CACHE).then((res) =>
+      res || (req.mode === 'navigate' ? caches.match('/index.html') : res)
+    )
   );
 });
