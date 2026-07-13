@@ -13,7 +13,7 @@
  * Tesseract downloads its engine and language data on demand; once fetched they
  * are cached and subsequent scanned-PDF reads work offline.
  */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const APP_CACHE = `subliword-app-${VERSION}`;
 const RUNTIME_CACHE = `subliword-runtime-${VERSION}`;
 

@@ -23,6 +23,34 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The app shell is served cache-first by the service worker, so shipping
+      # changed site files without bumping sw.js VERSION leaves returning PWA
+      # users on stale assets indefinitely.
+      - name: Require a service worker cache bump when site files change
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          BASE="$BEFORE"
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD^ 2>/dev/null || true)
+          fi
+          if [ -z "$BASE" ]; then
+            echo "No base commit to compare against; skipping check."
+            exit 0
+          fi
+          if git diff --quiet "$BASE" HEAD -- public ':!public/sw.js'; then
+            echo "No site file changes; no bump needed."
+            exit 0
+          fi
+          if git diff "$BASE" HEAD -- public/sw.js | grep -q "VERSION"; then
+            echo "sw.js VERSION was bumped."
+            exit 0
+          fi
+          echo "::error file=public/sw.js::public/ changed but sw.js VERSION was not bumped — returning PWA users would keep stale cached assets."
+          exit 1
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

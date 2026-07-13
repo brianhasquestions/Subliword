@@ -167,28 +167,6 @@
     if (ocrLang) ocrLang.value = prefs.ocrLang;
   }
 
-  // ===== External Libraries =====
-  // The parsing library each format depends on. Scripts load deferred from a
-  // CDN, so the one a file needs may still be in flight when the user uploads.
-  const REQUIRED_LIB = {
-    '.pdf': 'pdfjsLib',
-    '.docx': 'mammoth',
-    '.epub': 'JSZip'
-  };
-
-  // Wait for the library a format needs (only that one), up to timeoutMs.
-  async function waitForLibrary(ext, timeoutMs = 10000) {
-    const lib = REQUIRED_LIB[ext];
-    if (!lib) return true; // .txt needs no library
-
-    let waited = 0;
-    while (typeof window[lib] === 'undefined' && waited < timeoutMs) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      waited += 100;
-    }
-    return typeof window[lib] !== 'undefined';
-  }
-
   // ===== Progress Indicator UI =====
   function createProgressIndicator() {
     progressIndicator = document.createElement('div');
@@ -433,18 +411,6 @@
 
     // Identify this document so we can resume where the reader left off.
     currentDocId = `${file.name}:${file.size}`;
-
-    // Make sure the library this format needs has finished loading
-    const lib = REQUIRED_LIB[ext];
-    if (lib && typeof window[lib] === 'undefined') {
-      showProgressIndicator(t('title_loading_libs'), t('pg_please_wait'), 0);
-      const loaded = await waitForLibrary(ext);
-      if (!loaded) {
-        hideProgressIndicator();
-        showError(t('err_libraries_retry'));
-        return;
-      }
-    }
 
     resetUIForUpload();
     showProgressIndicator(t('title_parsing'), t('pg_please_wait'), 0);
@@ -731,6 +697,16 @@
         <p>${description}</p>
       </div>
     `;
+
+    // On mobile the control panel is in normal flow with content-dependent
+    // height (chapter selector, locale label wrapping, …) — anchor the toast
+    // just above however tall it currently is. On desktop the panel is a
+    // fixed side rail and the stylesheet's default offset applies.
+    const sidebar = document.getElementById('sidebar');
+    const inFlow = sidebar && getComputedStyle(sidebar).position === 'static';
+    UI.achievements.style.bottom = inFlow && sidebar.offsetHeight
+      ? `${sidebar.offsetHeight + 12}px`
+      : '';
 
     UI.achievements.appendChild(achievement);
 

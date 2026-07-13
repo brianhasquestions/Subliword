@@ -61,11 +61,17 @@ class RSVPReader {
       return { left: '', center: '', right: '' };
     }
 
-    const len = word.length;
-    // Calculate the true middle index
-    // For odd length: exact middle (e.g., length 5 -> index 2)
-    // For even length: left-of-center (e.g., length 4 -> index 1)
-    const middleIndex = Math.floor((len - 1) / 2);
+    // For multi-word chunks, anchor on the middle word so the highlighted
+    // character is never a space between words.
+    const words = word.split(' ');
+    const mid = Math.floor((words.length - 1) / 2);
+    const midWord = words[mid];
+    let offset = 0;
+    for (let i = 0; i < mid; i++) offset += words[i].length + 1; // +1 per joining space
+
+    // Middle of the anchor word: exact middle for odd lengths (5 -> index 2),
+    // left-of-center for even lengths (4 -> index 1).
+    const middleIndex = offset + Math.floor((midWord.length - 1) / 2);
 
     return {
       left: word.substring(0, middleIndex),

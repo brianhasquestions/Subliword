@@ -353,21 +353,28 @@
     <a href="/privacy.html" class="global-privacy-link" data-i18n="privacy">Privacy</a>
   </footer>
 
-  <!-- External Libraries (Subresource Integrity pins the exact bytes we tested) -->
+  <!-- External Libraries (Subresource Integrity pins the exact bytes we tested).
+       onerror records failures (network, SRI mismatch) so the parser can fail
+       fast instead of polling to a timeout. -->
+  <script>window.__libErrors = {};</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
     integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
-    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer
+    onerror="__libErrors.pdfjsLib = true"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
     integrity="sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz"
-    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer
+    onerror="__libErrors.mammoth = true"></script>
   <!-- JSZip: unzips EPUB e-books in the browser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
     integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
-    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer
+    onerror="__libErrors.JSZip = true"></script>
   <!-- Tesseract.js: OCR fallback for image-based (scanned) PDFs -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"
     integrity="sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F"
-    crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer" defer
+    onerror="__libErrors.Tesseract = true"></script>
 
   <!-- App Scripts -->
   <script src="js/i18n.js" defer></script>

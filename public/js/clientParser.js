@@ -53,6 +53,41 @@ const ClientParser = (function() {
    */
   const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
 
+  // The CDN library each format's parser depends on. Scripts load deferred,
+  // so the one a file needs may still be in flight when parsing starts.
+  const REQUIRED_LIB = {
+    '.pdf': 'pdfjsLib',
+    '.docx': 'mammoth',
+    '.epub': 'JSZip'
+  };
+
+  /**
+   * Wait for a CDN library global to appear (scripts load deferred). Fails
+   * fast when index.html recorded a load error for it (window.__libErrors)
+   * instead of polling out the full timeout.
+   */
+  function waitForLibrary(name, timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+      const failed = () => window.__libErrors && window.__libErrors[name];
+      const giveUp = () => reject(new Error(tr('err_libraries_retry')));
+
+      if (typeof window[name] !== 'undefined') return resolve();
+      if (failed()) return giveUp();
+
+      let waited = 0;
+      const interval = setInterval(() => {
+        waited += 100;
+        if (typeof window[name] !== 'undefined') {
+          clearInterval(interval);
+          resolve();
+        } else if (failed() || waited >= timeoutMs) {
+          clearInterval(interval);
+          giveUp();
+        }
+      }, 100);
+    });
+  }
+
   /**
    * Parse a file locally in the browser
    * @param {File} file - The file to parse
@@ -68,6 +103,13 @@ const ClientParser = (function() {
 
     onProgress(5, tr('pg_reading_file'));
     await yieldToMain();
+
+    // Make sure the library this format needs has finished loading
+    const lib = REQUIRED_LIB[ext];
+    if (lib && typeof window[lib] === 'undefined') {
+      onProgress(5, tr('title_loading_libs'));
+      await waitForLibrary(lib);
+    }
 
     switch (ext) {
       case '.pdf':
@@ -123,10 +165,6 @@ const ClientParser = (function() {
    * Mixed documents are handled per-page.
    */
   async function parsePDF(file, onProgress, options = {}) {
-    if (typeof pdfjsLib === 'undefined') {
-      throw new Error('PDF.js library not loaded');
-    }
-
     const ocrLang = options.ocrLang || OCR_LANG;
 
     onProgress(10, tr('pg_loading_pdf'));
@@ -377,10 +415,6 @@ const ClientParser = (function() {
    * Parse DOCX using mammoth.js
    */
   async function parseDOCX(file, onProgress) {
-    if (typeof mammoth === 'undefined') {
-      throw new Error('Mammoth.js library not loaded');
-    }
-
     onProgress(20, tr('pg_extract_docx'));
     await yieldToMain();
 
@@ -415,8 +449,6 @@ const ClientParser = (function() {
    * as a chapter. Returns an array of { title, content } chapters.
    */
   async function parseEPUB(file, onProgress) {
-    await waitForJSZip();
-
     onProgress(10, tr('pg_opening_epub'));
     await yieldToMain();
 
@@ -502,28 +534,6 @@ const ClientParser = (function() {
   function chaptersToChunks(chapters) {
     if (chapters.length > 1) return processChapters(chapters);
     return splitBySize(chapters[0] ? chapters[0].content : '');
-  }
-
-  /**
-   * Wait for the JSZip library to be available (loaded async/deferred).
-   */
-  function waitForJSZip(timeoutMs = 15000) {
-    return new Promise((resolve, reject) => {
-      if (typeof JSZip !== 'undefined') {
-        resolve();
-        return;
-      }
-      const start = Date.now();
-      const interval = setInterval(() => {
-        if (typeof JSZip !== 'undefined') {
-          clearInterval(interval);
-          resolve();
-        } else if (Date.now() - start > timeoutMs) {
-          clearInterval(interval);
-          reject(new Error('EPUB library (JSZip) failed to load. Check your connection and try again.'));
-        }
-      }, 100);
-    });
   }
 
   /**
