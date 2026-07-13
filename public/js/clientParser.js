@@ -699,15 +699,7 @@ const ClientParser = (function() {
     return cleaned.split(' ').filter(word => word.length > 0);
   }
 
-  function checkLibraries() {
-    const missing = [];
-    if (typeof pdfjsLib === 'undefined') missing.push('PDF.js');
-    if (typeof mammoth === 'undefined') missing.push('Mammoth.js');
-    return missing;
-  }
-
   return {
-    parseFile,
-    checkLibraries
+    parseFile
   };
 })();

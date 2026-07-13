@@ -107,7 +107,6 @@
   // ===== State =====
   let reader = null;
   let progressIndicator = null;
-  let librariesLoaded = false;
   let currentChapters = [];   // [{ title, startIndex, wordCount }]
   let currentDocId = null;    // Identity of the loaded doc, for position persistence
   let lastPositionSave = 0;
@@ -128,7 +127,6 @@
     setupEventListeners();
     setupThemeToggle();
     createProgressIndicator();
-    checkLibrariesLoaded();
   }
 
   // ===== Language / i18n =====
@@ -169,25 +167,26 @@
     if (ocrLang) ocrLang.value = prefs.ocrLang;
   }
 
-  // ===== Check External Libraries =====
-  function checkLibrariesLoaded() {
-    // Check if libraries are loaded
-    const checkInterval = setInterval(() => {
-      if (typeof pdfjsLib !== 'undefined' && typeof mammoth !== 'undefined') {
-        librariesLoaded = true;
-        clearInterval(checkInterval);
-        console.log('External libraries loaded successfully');
-      }
-    }, 100);
+  // ===== External Libraries =====
+  // The parsing library each format depends on. Scripts load deferred from a
+  // CDN, so the one a file needs may still be in flight when the user uploads.
+  const REQUIRED_LIB = {
+    '.pdf': 'pdfjsLib',
+    '.docx': 'mammoth',
+    '.epub': 'JSZip'
+  };
 
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (!librariesLoaded) {
-        console.error('Failed to load external libraries');
-        showError(t('err_libraries'));
-      }
-    }, 10000);
+  // Wait for the library a format needs (only that one), up to timeoutMs.
+  async function waitForLibrary(ext, timeoutMs = 10000) {
+    const lib = REQUIRED_LIB[ext];
+    if (!lib) return true; // .txt needs no library
+
+    let waited = 0;
+    while (typeof window[lib] === 'undefined' && waited < timeoutMs) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      waited += 100;
+    }
+    return typeof window[lib] !== 'undefined';
   }
 
   // ===== Progress Indicator UI =====
@@ -435,17 +434,13 @@
     // Identify this document so we can resume where the reader left off.
     currentDocId = `${file.name}:${file.size}`;
 
-    // Check if libraries are loaded
-    if (!librariesLoaded) {
-      // Wait for libraries to load (max 5 seconds)
+    // Make sure the library this format needs has finished loading
+    const lib = REQUIRED_LIB[ext];
+    if (lib && typeof window[lib] === 'undefined') {
       showProgressIndicator(t('title_loading_libs'), t('pg_please_wait'), 0);
-      let waited = 0;
-      while (!librariesLoaded && waited < 5000) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        waited += 100;
-      }
-
-      if (!librariesLoaded) {
+      const loaded = await waitForLibrary(ext);
+      if (!loaded) {
+        hideProgressIndicator();
         showError(t('err_libraries_retry'));
         return;
       }
