@@ -127,6 +127,11 @@
     setupEventListeners();
     setupThemeToggle();
     createProgressIndicator();
+
+    // Re-fit the displayed word when the viewport changes (rotation, resize)
+    window.addEventListener('resize', () => {
+      if (lastWordParts) fitWordDisplay(lastWordParts);
+    });
   }
 
   // ===== Language / i18n =====
@@ -539,8 +544,12 @@
   }
 
   // ===== UI Updates =====
+  let lastWordParts = null;
+  let measureCtx = null;
+
   function updateWordDisplay(parts) {
     const { wordLeft, wordCenter, wordRight, wordWrapper } = UI.reading;
+    lastWordParts = parts;
     wordLeft.textContent = parts.left;
     wordCenter.textContent = parts.center;
     wordRight.textContent = parts.right;
@@ -551,6 +560,38 @@
       const isRTL = RTL_CHARS.test(parts.left + parts.center + parts.right);
       const dir = isRTL ? 'rtl' : 'ltr';
       if (wordWrapper.getAttribute('dir') !== dir) wordWrapper.setAttribute('dir', dir);
+    }
+
+    fitWordDisplay(parts);
+  }
+
+  /**
+   * Scale the word display's font down when the current chunk would run past
+   * the screen edge. The side spans always split the width equally (keeping
+   * the ORP letter pinned at the focal line), so the longer side dictates the
+   * needed width. Text is measured on a canvas — no extra layout per tick.
+   */
+  function fitWordDisplay(parts) {
+    const { wordWrapper } = UI.reading;
+    if (!wordWrapper) return;
+
+    wordWrapper.style.fontSize = ''; // back to the stylesheet size
+    const available = wordWrapper.clientWidth - 8;
+    if (available <= 0) return; // reading page not visible
+
+    const style = getComputedStyle(wordWrapper);
+    const base = parseFloat(style.fontSize);
+    if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+    measureCtx.font = `${style.fontWeight} ${base}px ${style.fontFamily}`;
+
+    const side = Math.max(
+      measureCtx.measureText(parts.left).width,
+      measureCtx.measureText(parts.right).width
+    );
+    const needed = side * 2 + measureCtx.measureText(parts.center).width;
+
+    if (needed > available) {
+      wordWrapper.style.fontSize = `${Math.max(14, Math.floor((base * available) / needed))}px`;
     }
   }
 

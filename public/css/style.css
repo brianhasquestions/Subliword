@@ -281,17 +281,20 @@ input:focus-visible {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  max-width: 90vw;
+  width: 100%;
   overflow: visible;
 }
 
-/* Logical alignment (end/start) so the ORP layout is correct in both LTR and
-   RTL scripts — the word-wrapper's dir attribute is set per word in JS.
+/* The side spans always split the width equally (flex: 1 1 0) so the
+   highlighted ORP letter stays pinned at the focal line no matter how a
+   chunk divides; main.js scales the font down when the longer side would
+   overflow. Logical alignment (end/start) keeps the layout correct in both
+   LTR and RTL scripts — the wrapper's dir attribute is set per word in JS.
    white-space: pre keeps the spaces at span boundaries in multi-word chunks
    from being collapsed away (the spans are flex items). */
-#word-left { text-align: end; min-width: 200px; flex-shrink: 1; overflow: visible; white-space: pre; }
-#word-center { color: var(--accent-red); font-weight: 700; flex-shrink: 0; white-space: pre; }
-#word-right { text-align: start; min-width: 200px; flex-shrink: 1; overflow: visible; white-space: pre; }
+#word-left { text-align: end; flex: 1 1 0; min-width: 0; overflow: visible; white-space: pre; }
+#word-center { color: var(--accent-red); font-weight: 700; flex: 0 0 auto; white-space: pre; }
+#word-right { text-align: start; flex: 1 1 0; min-width: 0; overflow: visible; white-space: pre; }
 
 .focus-line {
   position: absolute;
@@ -639,7 +642,6 @@ kbd {
   .logo { font-size: 2.5rem; }
   .tagline { font-size: 0.95rem; margin-bottom: 40px; }
   .word-wrapper { font-size: 2rem; padding: 0 5px; }
-  #word-left, #word-right { min-width: 80px; }
   .focus-line { height: 80px; }
 
   /* Components */
@@ -730,7 +732,6 @@ kbd {
   .supported-formats { font-size: 0.8rem !important; }
   
   .word-wrapper { font-size: 1.6rem; }
-  #word-left, #word-right { min-width: 60px; }
   .focus-line { height: 60px; }
   
   .control-btn { width: 48px; height: 48px; }
@@ -742,7 +743,6 @@ kbd {
 @media (max-width: 360px) {
   .logo { font-size: 1.9rem; }
   .word-wrapper { font-size: 1.4rem; }
-  #word-left, #word-right { min-width: 45px; }
   .control-btn { width: 44px; height: 44px; }
   .play-btn { width: 52px; height: 52px; }
   .playback-controls { gap: 8px; }
