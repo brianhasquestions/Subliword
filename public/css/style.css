@@ -58,7 +58,7 @@ body {
 .skip-link {
   position: absolute;
   top: -40px;
-  left: 0;
+  inset-inline-start: 0;
   background: var(--accent-red);
   color: white;
   padding: 12px 24px;
@@ -225,7 +225,7 @@ input:focus-visible {
 .global-privacy-link {
   position: fixed;
   bottom: 15px;
-  right: 20px;
+  inset-inline-end: 20px;
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.75rem;
@@ -238,6 +238,9 @@ input:focus-visible {
   color: var(--accent-red);
   opacity: 1;
 }
+
+/* Offset the second footer link so the two don't overlap (flips in RTL) */
+.global-privacy-link.footer-about { inset-inline-end: 80px; }
 
 /* ===== Reading Page ===== */
 .reading-container {
@@ -327,14 +330,14 @@ input:focus-visible {
 /* ===== Sidebar ===== */
 .sidebar {
   position: fixed;
-  left: 0;
+  inset-inline-start: 0; /* left in LTR, right in RTL */
   top: 0;
   height: 100vh;
   width: 15%;
   min-width: 180px;
   max-width: 280px;
   background: transparent;
-  border-right: 1px solid rgba(64, 64, 64, 0.3);
+  border-inline-end: 1px solid rgba(64, 64, 64, 0.3);
   transition: var(--transition);
   z-index: 100;
   opacity: 0.3;
@@ -575,7 +578,7 @@ kbd {
 .chunk-progress-indicator {
   position: fixed;
   top: 20px;
-  right: 20px;
+  inset-inline-end: 20px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -767,7 +770,7 @@ kbd {
 .global-controls {
   position: fixed;
   top: 16px;
-  right: 16px;
+  inset-inline-end: 16px; /* right in LTR, left in RTL */
   z-index: 200;
   display: flex;
   align-items: center;
@@ -818,7 +821,7 @@ kbd {
 .theme-toggle svg { width: 20px; height: 20px; }
 
 @media (max-width: 768px) {
-  .global-controls { top: 12px; right: 12px; gap: 8px; }
+  .global-controls { top: 12px; inset-inline-end: 12px; gap: 8px; }
   .lang-select { height: 38px; font-size: 0.8rem; }
   .theme-toggle { width: 38px; height: 38px; }
 }
@@ -901,7 +904,7 @@ kbd {
   content: '';
   position: absolute;
   top: 2px;
-  left: 2px;
+  inset-inline-start: 2px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -917,6 +920,11 @@ kbd {
 .toggle-input:checked + .toggle-switch::after {
   transform: translateX(18px);
   background: #fff;
+}
+
+/* Knob slides the other way in RTL */
+[dir="rtl"] .toggle-input:checked + .toggle-switch::after {
+  transform: translateX(-18px);
 }
 
 .toggle-input:focus-visible + .toggle-switch {

@@ -63,7 +63,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
-  <!-- Apply saved theme before paint to avoid a flash of the wrong theme -->
+  <!-- Apply saved theme + language direction before paint to avoid flashes -->
   <script>
     (function () {
       try {
@@ -74,6 +74,13 @@
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'dark');
       }
+      try {
+        var lang = localStorage.getItem('subliword.lang');
+        if (lang) {
+          document.documentElement.lang = lang;
+          document.documentElement.dir = (lang === 'ar' || lang === 'he') ? 'rtl' : 'ltr';
+        }
+      } catch (e) { /* ignore */ }
     })();
   </script>
   
@@ -350,7 +357,7 @@
 
   <!-- Footer Links -->
   <footer>
-    <a href="/about.html" class="global-privacy-link" style="right: 80px;" data-i18n="about">About</a>
+    <a href="/about.html" class="global-privacy-link footer-about" data-i18n="about">About</a>
     <a href="/privacy.html" class="global-privacy-link" data-i18n="privacy">Privacy</a>
   </footer>
 
