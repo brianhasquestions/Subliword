@@ -38,10 +38,16 @@
   };
 
   const prefs = Object.assign(
-    { wpm: 300, chunkSize: 1, warmup: true },
+    { wpm: 300, chunkSize: 1, warmup: true, ocrLang: 'eng' },
     store.load(STORE_KEYS.prefs, {})
   );
   function savePrefs() { store.save(STORE_KEYS.prefs, prefs); }
+
+  // Translation shortcut (i18n.js loads before this script).
+  const t = (key, vars) => (window.I18N ? window.I18N.t(key, vars) : key);
+
+  // Characters from right-to-left scripts (Hebrew, Arabic, Syriac, Thaana, …).
+  const RTL_CHARS = /[֐-׿؀-ۿ܀-ݏݐ-ݿࢠ-ࣿיִ-﷿ﹰ-﻿]/;
 
   // ===== DOM Elements =====
   const UI = {
@@ -57,6 +63,7 @@
       error: document.getElementById('error-message')
     },
     reading: {
+      wordWrapper: document.querySelector('.word-wrapper'),
       wordLeft: document.getElementById('word-left'),
       wordCenter: document.getElementById('word-center'),
       wordRight: document.getElementById('word-right'),
@@ -80,6 +87,8 @@
       warmupToggle: document.getElementById('warmup-toggle'),
       chapterGroup: document.getElementById('chapter-group'),
       chapterSelect: document.getElementById('chapter-select'),
+      ocrLang: document.getElementById('ocr-lang'),
+      langSelect: document.getElementById('lang-select'),
       sidebar: document.getElementById('sidebar'),
       sidebarToggle: document.getElementById('sidebar-toggle')
     },
@@ -116,6 +125,7 @@
   // ===== Initialize =====
   function init() {
     reader = new RSVPReader();
+    setupLanguage();
     applyStoredPreferences();
     setupEventListeners();
     setupThemeToggle();
@@ -123,9 +133,34 @@
     checkLibrariesLoaded();
   }
 
-  // Reflect saved preferences (WPM, chunk size, warm-up) into the controls.
+  // ===== Language / i18n =====
+  function setupLanguage() {
+    if (!window.I18N) return;
+    const { langSelect } = UI.controls;
+
+    // Populate the switcher from the available languages
+    if (langSelect) {
+      langSelect.innerHTML = '';
+      I18N.languages.forEach((code) => {
+        const opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = I18N.languageNames[code] || code;
+        langSelect.appendChild(opt);
+      });
+      langSelect.value = I18N.language;
+      langSelect.addEventListener('change', (e) => I18N.setLanguage(e.target.value));
+    }
+
+    // Translate the static markup now, and refresh dynamic strings on change.
+    I18N.apply();
+    document.addEventListener('i18n:changed', () => {
+      updateStats();
+    });
+  }
+
+  // Reflect saved preferences (WPM, chunk size, warm-up, OCR language) into the controls.
   function applyStoredPreferences() {
-    const { wpmSlider, wpmDisplay, chunkSlider, chunkDisplay, warmupToggle } = UI.controls;
+    const { wpmSlider, wpmDisplay, chunkSlider, chunkDisplay, warmupToggle, ocrLang } = UI.controls;
 
     wpmSlider.value = prefs.wpm;
     wpmDisplay.textContent = prefs.wpm;
@@ -133,6 +168,7 @@
     chunkDisplay.textContent = prefs.chunkSize;
     warmupToggle.checked = prefs.warmup;
     reader.setWarmup(prefs.warmup);
+    if (ocrLang) ocrLang.value = prefs.ocrLang;
   }
 
   // ===== Check External Libraries =====
@@ -151,7 +187,7 @@
       clearInterval(checkInterval);
       if (!librariesLoaded) {
         console.error('Failed to load external libraries');
-        showError('Failed to load required libraries. Please refresh the page or check your internet connection.');
+        showError(t('err_libraries'));
       }
     }, 10000);
   }
@@ -238,6 +274,13 @@
         handleFile(e.target.files[0]);
       }
     });
+
+    if (UI.controls.ocrLang) {
+      UI.controls.ocrLang.addEventListener('change', (e) => {
+        prefs.ocrLang = e.target.value;
+        savePrefs();
+      });
+    }
   }
 
   function setupPlaybackControls() {
@@ -440,7 +483,7 @@
     const ext = '.' + file.name.split('.').pop().toLowerCase();
 
     if (!validTypes.includes(ext)) {
-      showError('Invalid file type. Please upload a PDF, DOCX, EPUB, or TXT file.');
+      showError(t('err_invalid_type'));
       return;
     }
 
@@ -450,30 +493,30 @@
     // Check if libraries are loaded
     if (!librariesLoaded) {
       // Wait for libraries to load (max 5 seconds)
-      showProgressIndicator('Loading libraries...', 'Please wait...', 0);
+      showProgressIndicator(t('title_loading_libs'), t('pg_please_wait'), 0);
       let waited = 0;
       while (!librariesLoaded && waited < 5000) {
         await new Promise(resolve => setTimeout(resolve, 100));
         waited += 100;
       }
-      
+
       if (!librariesLoaded) {
-        showError('Required libraries are not loaded. Please refresh the page and try again.');
+        showError(t('err_libraries_retry'));
         return;
       }
     }
 
     resetUIForUpload();
-    showProgressIndicator('Parsing document...', 'Please wait...', 0);
+    showProgressIndicator(t('title_parsing'), t('pg_please_wait'), 0);
     
     try {
       // Parse the file locally (client-side only, no server upload needed)
       const startTime = performance.now();
       
-      // Parse using ClientParser module
+      // Parse using ClientParser module (OCR language from the user's choice)
       const result = await ClientParser.parseFile(file, (percent, message) => {
-        showProgressIndicator('Parsing locally...', message, percent);
-      });
+        showProgressIndicator(t('title_parsing_local'), message, percent);
+      }, { ocrLang: prefs.ocrLang });
 
       const parseTime = ((performance.now() - startTime) / 1000).toFixed(2);
 
@@ -494,11 +537,11 @@
 
       hideProgressIndicator();
       startReading(words);
-      showAchievement('quickStart', '🚀', 'Quick Start', `Parsed in ${parseTime}s!`);
-      
+      showAchievement('quickStart', '🚀', t('ach_quickstart_title'), t('ach_quickstart_desc', { time: parseTime }));
+
     } catch (error) {
       console.error('Processing failed:', error);
-      showError(`Failed to process file: ${error.message}`);
+      showError(t('err_process', { message: error.message }));
       resetUIForError();
       hideProgressIndicator();
     }
@@ -506,7 +549,7 @@
 
   function startReading(words) {
     if (!words || words.length === 0) {
-      showError('No words found in document.');
+      showError(t('err_no_words'));
       resetUIForError();
       return;
     }
@@ -531,7 +574,7 @@
     UI.upload.spinner.classList.add('hidden');
 
     if (startIndex > 0) {
-      showAchievement('resume', '🔖', 'Welcome back', 'Resumed where you left off.');
+      showAchievement('resume', '🔖', t('ach_resume_title'), t('ach_resume_desc'));
     }
   }
 
@@ -591,10 +634,18 @@
 
   // ===== UI Updates =====
   function updateWordDisplay(parts) {
-    const { wordLeft, wordCenter, wordRight } = UI.reading;
+    const { wordLeft, wordCenter, wordRight, wordWrapper } = UI.reading;
     wordLeft.textContent = parts.left;
     wordCenter.textContent = parts.center;
     wordRight.textContent = parts.right;
+
+    // Flip the display for right-to-left scripts (Arabic, Hebrew, …). The three
+    // ORP spans stay in logical order; direction handles the visual arrangement.
+    if (wordWrapper) {
+      const isRTL = RTL_CHARS.test(parts.left + parts.center + parts.right);
+      const dir = isRTL ? 'rtl' : 'ltr';
+      if (wordWrapper.getAttribute('dir') !== dir) wordWrapper.setAttribute('dir', dir);
+    }
   }
 
   function updateProgress(index) {
@@ -618,7 +669,7 @@
     const wordsRead = reader.totalWordsRead;
 
     if (words) words.textContent = wordsRead.toLocaleString();
-    if (wpm) wpm.textContent = `${reader.maxWpmReached} WPM`;
+    if (wpm) wpm.textContent = `${reader.maxWpmReached} ${t('wpm_unit')}`;
     if (saved) saved.textContent = formatDuration(timeSavedSeconds(wordsRead, reader.wpm));
   }
 
@@ -662,7 +713,7 @@
     updateStats();
 
     if (wpm > SPEED_DEMON_WPM && !achievements.speedDemon) {
-      showAchievement('speedDemon', '⚡', 'Speed Demon', `Reached over ${SPEED_DEMON_WPM} WPM!`);
+      showAchievement('speedDemon', '⚡', t('ach_speeddemon_title'), t('ach_speeddemon_desc', { wpm: SPEED_DEMON_WPM }));
     }
   }
 
@@ -690,7 +741,7 @@
 
     const completion = reader.getCompletionPercentage();
     if (completion >= BOOKWORM_PERCENT && !achievements.bookworm) {
-      showAchievement('bookworm', '📚', 'Bookworm', `Completed over ${BOOKWORM_PERCENT}% of the document!`);
+      showAchievement('bookworm', '📚', t('ach_bookworm_title'), t('ach_bookworm_desc', { percent: BOOKWORM_PERCENT }));
     }
   }
 
@@ -754,7 +805,7 @@
 
   function checkAchievements() {
     if (reader.totalWordsRead > MARATHON_WORDS && !achievements.marathon) {
-      showAchievement('marathon', '🏃', 'Marathon Reader', `Read over ${MARATHON_WORDS} words!`);
+      showAchievement('marathon', '🏃', t('ach_marathon_title'), t('ach_marathon_desc', { words: MARATHON_WORDS }));
     }
   }
 

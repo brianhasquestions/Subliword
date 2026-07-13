@@ -6,6 +6,12 @@
 const ClientParser = (function() {
   'use strict';
 
+  // Translate a progress/user-facing message via the i18n module when present.
+  function tr(key, vars) {
+    if (window.I18N && typeof window.I18N.t === 'function') return window.I18N.t(key, vars);
+    return key;
+  }
+
   // Configure PDF.js worker
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -53,19 +59,19 @@ const ClientParser = (function() {
    * @param {Function} onProgress - Progress callback (percent, message)
    * @returns {Promise<{chunks: Array, totalWords: number}>}
    */
-  async function parseFile(file, onProgress = () => {}) {
+  async function parseFile(file, onProgress = () => {}, options = {}) {
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     let text = '';
     // EPUB already carries an explicit chapter structure (its spine), so it
     // produces chapters directly rather than a flat text blob.
     let chapters = null;
 
-    onProgress(5, 'Reading file...');
+    onProgress(5, tr('pg_reading_file'));
     await yieldToMain();
 
     switch (ext) {
       case '.pdf':
-        text = await parsePDF(file, onProgress);
+        text = await parsePDF(file, onProgress, options);
         break;
       case '.docx':
         text = await parseDOCX(file, onProgress);
@@ -80,7 +86,7 @@ const ClientParser = (function() {
         throw new Error(`Unsupported file type: ${ext}`);
     }
 
-    onProgress(80, 'Processing text...');
+    onProgress(80, tr('pg_processing_text'));
     await yieldToMain();
 
     // Process into chunks to avoid freezing (EPUB uses its own chapters).
@@ -88,7 +94,7 @@ const ClientParser = (function() {
       ? chaptersToChunks(chapters)
       : await splitIntoChunksAsync(text);
 
-    onProgress(95, 'Finalizing...');
+    onProgress(95, tr('pg_finalizing'));
     await yieldToMain();
     
     let totalWords = 0;
@@ -103,7 +109,7 @@ const ClientParser = (function() {
       };
     });
 
-    onProgress(100, 'Complete!');
+    onProgress(100, tr('pg_complete'));
 
     return {
       chunks: processedChunks,
@@ -116,17 +122,19 @@ const ClientParser = (function() {
    * contain little or no extractable text (i.e. scanned / image-based pages).
    * Mixed documents are handled per-page.
    */
-  async function parsePDF(file, onProgress) {
+  async function parsePDF(file, onProgress, options = {}) {
     if (typeof pdfjsLib === 'undefined') {
       throw new Error('PDF.js library not loaded');
     }
 
-    onProgress(10, 'Loading PDF...');
+    const ocrLang = options.ocrLang || OCR_LANG;
+
+    onProgress(10, tr('pg_loading_pdf'));
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const numPages = pdf.numPages;
-    let fullText = '';
+    const pageLines = []; // Per-page arrays of line strings (top -> bottom)
     let ocrWorker = null;
     let ocrError = null; // First OCR failure; further OCR attempts are skipped
 
@@ -138,34 +146,34 @@ const ClientParser = (function() {
         const percent = 10 + Math.round((i / numPages) * 60);
 
         if (i % BATCH_SIZE === 0) {
-          onProgress(percent, `Extracting page ${i} of ${numPages}...`);
+          onProgress(percent, tr('pg_extracting_page', { i, n: numPages }));
           await yieldToMain();
         }
 
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        let pageText = textContent.items.map(item => item.str).join(' ');
+        let lines = reconstructLines(textContent);
 
         // A page with almost no text layer that DOES contain an image is likely
         // a scan. Pages that are just sparse text (title pages, "Part One") are
         // left alone. After a hard OCR failure we stop trying (otherwise a CDN
         // outage would stall for the full load timeout on every scanned page).
-        if (countRealChars(pageText) < OCR_MIN_CHARS && !ocrError && await pageHasImage(page)) {
+        if (countRealChars(lines.join(' ')) < OCR_MIN_CHARS && !ocrError && await pageHasImage(page)) {
           try {
             if (!ocrWorker) {
               // First OCR page downloads the engine + language data (a few MB)
-              onProgress(percent, 'Loading OCR engine for scanned pages...');
+              onProgress(percent, tr('pg_ocr_engine'));
               await yieldToMain();
-              ocrWorker = await createOCRWorker();
+              ocrWorker = await createOCRWorker(ocrLang);
             }
 
-            onProgress(percent, `Reading scanned page ${i} of ${numPages} (OCR)...`);
+            onProgress(percent, tr('pg_ocr_page', { i, n: numPages }));
             await yieldToMain();
 
             const ocrText = await ocrPage(page, ocrWorker);
             // Keep whichever result actually has content
-            if (countRealChars(ocrText) > countRealChars(pageText)) {
-              pageText = ocrText;
+            if (countRealChars(ocrText) > countRealChars(lines.join(' '))) {
+              lines = ocrText.split(/\n+/).map(s => s.trim()).filter(Boolean);
             }
           } catch (err) {
             // Don't fail the whole document over one page — keep the (possibly
@@ -175,13 +183,16 @@ const ClientParser = (function() {
           }
         }
 
-        fullText += pageText + '\n';
+        pageLines.push(lines);
       }
     } finally {
       if (ocrWorker) {
         await ocrWorker.terminate();
       }
     }
+
+    // Remove running headers/footers and page numbers before assembling text.
+    const fullText = stripRunningHeadersFooters(pageLines);
 
     // If OCR failed AND the document is essentially unreadable without it,
     // surface the real cause instead of a generic "no words found".
@@ -190,6 +201,91 @@ const ClientParser = (function() {
     }
 
     return fullText;
+  }
+
+  /**
+   * Reconstruct visual lines from a PDF page's text content by grouping text
+   * items on the same baseline (y position), ordered top-to-bottom.
+   * @returns {string[]} line strings
+   */
+  function reconstructLines(textContent) {
+    const rows = new Map();
+    const TOL = 3; // points of vertical tolerance when grouping into a line
+
+    for (const item of textContent.items) {
+      if (!item.str) continue;
+      const y = item.transform ? item.transform[5] : 0;
+      const x = item.transform ? item.transform[4] : 0;
+      const key = Math.round(y / TOL);
+      if (!rows.has(key)) rows.set(key, []);
+      rows.get(key).push({ x, str: item.str });
+    }
+
+    // Higher y = higher on the page, so sort keys descending for top -> bottom
+    const keys = Array.from(rows.keys()).sort((a, b) => b - a);
+    const lines = [];
+    for (const k of keys) {
+      const text = rows.get(k)
+        .sort((a, b) => a.x - b.x)
+        .map(p => p.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text.length) lines.push(text);
+    }
+    return lines;
+  }
+
+  /**
+   * Detect and remove running headers/footers and page-number lines.
+   * A line is dropped if it is the top or bottom line of its page AND either
+   * looks like a bare page number, or (in a multi-page document) its normalized
+   * form recurs on a large fraction of pages.
+   */
+  function stripRunningHeadersFooters(pageLines) {
+    const numPages = pageLines.length;
+
+    // Normalize so "Page 12" and "Page 13" collapse to the same running element.
+    const norm = (s) => s.toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\d+/g, '#')
+      .replace(/^[^\w#]+|[^\w#]+$/g, '');
+
+    const pageNumRe = /^(\d{1,4}|[ivxlcdm]{1,7})$/i;
+    const looksLikePageNumber = (s) => pageNumRe.test(s.replace(/\s+/g, '').trim());
+
+    const topCounts = new Map();
+    const botCounts = new Map();
+    for (const lines of pageLines) {
+      if (lines.length === 0) continue;
+      const top = norm(lines[0]);
+      const bot = norm(lines[lines.length - 1]);
+      if (top) topCounts.set(top, (topCounts.get(top) || 0) + 1);
+      if (bot) botCounts.set(bot, (botCounts.get(bot) || 0) + 1);
+    }
+
+    const repeatThreshold = Math.max(3, Math.ceil(numPages * 0.4));
+
+    const isRunning = (raw, counts) => {
+      if (looksLikePageNumber(raw)) return true;
+      const n = norm(raw);
+      if (!n) return true;
+      return numPages >= 3 && (counts.get(n) || 0) >= repeatThreshold && n.length <= 60;
+    };
+
+    const out = [];
+    for (const lines of pageLines) {
+      if (lines.length === 0) continue;
+      let start = 0;
+      let end = lines.length;
+      // Never strip a page's only line.
+      if (end - start > 1 && isRunning(lines[start], topCounts)) start++;
+      if (end - start > 1 && isRunning(lines[end - 1], botCounts)) end--;
+      const kept = lines.slice(start, end);
+      if (kept.length) out.push(kept.join('\n'));
+    }
+    return out.join('\n');
   }
 
   /**
@@ -218,12 +314,13 @@ const ClientParser = (function() {
   }
 
   /**
-   * Create (and wait for) a Tesseract.js OCR worker.
+   * Create (and wait for) a Tesseract.js OCR worker for the given language(s).
+   * @param {string} lang - Tesseract language code(s), e.g. 'eng' or 'eng+spa'
    */
-  async function createOCRWorker() {
+  async function createOCRWorker(lang = OCR_LANG) {
     await waitForTesseract();
     // Tesseract v5: createWorker(lang) loads and initializes the language.
-    return Tesseract.createWorker(OCR_LANG);
+    return Tesseract.createWorker(lang || OCR_LANG);
   }
 
   /**
@@ -284,13 +381,13 @@ const ClientParser = (function() {
       throw new Error('Mammoth.js library not loaded');
     }
 
-    onProgress(20, 'Extracting DOCX content...');
+    onProgress(20, tr('pg_extract_docx'));
     await yieldToMain();
-    
+
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
-    
-    onProgress(70, 'Processing text...');
+
+    onProgress(70, tr('pg_processing_text'));
     return result.value;
   }
 
@@ -298,13 +395,13 @@ const ClientParser = (function() {
    * Parse TXT file
    */
   async function parseTXT(file, onProgress) {
-    onProgress(20, 'Reading text file...');
+    onProgress(20, tr('pg_reading_txt'));
     await yieldToMain();
-    
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        onProgress(70, 'Processing text...');
+        onProgress(70, tr('pg_processing_text'));
         resolve(e.target.result);
       };
       reader.onerror = () => reject(new Error('Failed to read text file'));
@@ -320,7 +417,7 @@ const ClientParser = (function() {
   async function parseEPUB(file, onProgress) {
     await waitForJSZip();
 
-    onProgress(10, 'Opening EPUB...');
+    onProgress(10, tr('pg_opening_epub'));
     await yieldToMain();
 
     const arrayBuffer = await file.arrayBuffer();
@@ -360,7 +457,7 @@ const ClientParser = (function() {
     for (let i = 0; i < spineHrefs.length; i++) {
       if (i % 5 === 0) {
         onProgress(10 + Math.round((i / spineHrefs.length) * 60),
-          `Reading section ${i + 1} of ${spineHrefs.length}...`);
+          tr('pg_reading_section', { i: i + 1, n: spineHrefs.length }));
         await yieldToMain();
       }
 

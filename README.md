@@ -10,7 +10,10 @@ A speed-reading web app using RSVP (Rapid Serial Visual Presentation). Upload a 
 - **Warm-up ramp** — each play session eases from a lower speed up to your target so your eyes lock on
 - **Word-length & punctuation pacing** — longer words and sentence ends get a touch more time
 - **PDF, DOCX, EPUB, and TXT support** — parsed entirely in your browser
-- **Scanned PDF support** — image-based pages are read with OCR (Tesseract.js), automatically and per-page
+- **Scanned PDF support** — image-based pages are read with OCR (Tesseract.js), automatically and per-page, with **selectable OCR language** (English, Spanish, French, German, Arabic, Chinese, Japanese, and more)
+- **Header/footer cleanup** — running headers and page numbers are detected and stripped from PDFs so they don't interrupt the reading stream
+- **Interface in multiple languages** — English, Spanish, French, and German, with a language switcher (auto-detects your browser language)
+- **Right-to-left scripts** — Arabic, Hebrew, and other RTL text render correctly at the focal point
 - **Chapter navigation** — detected chapters (and EPUB spine sections) are listed for one-click jumping
 - **Resume where you left off** — reading position, WPM, chunk size, warm-up, and theme are remembered per device
 - **Reading stats** — words read, top speed, and estimated time saved versus an average reader

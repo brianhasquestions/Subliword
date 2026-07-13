@@ -269,9 +269,11 @@ input:focus-visible {
   overflow: visible;
 }
 
-#word-left { text-align: right; min-width: 200px; flex-shrink: 1; overflow: visible; }
+/* Logical alignment (end/start) so the ORP layout is correct in both LTR and
+   RTL scripts — the word-wrapper's dir attribute is set per word in JS. */
+#word-left { text-align: end; min-width: 200px; flex-shrink: 1; overflow: visible; }
 #word-center { color: var(--accent-red); font-weight: 700; flex-shrink: 0; }
-#word-right { text-align: left; min-width: 200px; flex-shrink: 1; overflow: visible; }
+#word-right { text-align: start; min-width: 200px; flex-shrink: 1; overflow: visible; }
 
 .focus-line {
   position: absolute;
@@ -761,12 +763,38 @@ kbd {
   .drop-zone:active { border-color: var(--accent-red); background: var(--bg-tertiary); }
 }
 
-/* ===== Theme Toggle ===== */
-.theme-toggle {
+/* ===== Global Controls (language + theme, top-right) ===== */
+.global-controls {
   position: fixed;
   top: 16px;
   right: 16px;
   z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lang-select {
+  height: 42px;
+  padding: 0 10px;
+  border-radius: 21px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: var(--transition);
+}
+
+.lang-select:hover {
+  opacity: 1;
+  color: var(--text-primary);
+  border-color: var(--accent-red);
+}
+
+.theme-toggle {
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -790,8 +818,39 @@ kbd {
 .theme-toggle svg { width: 20px; height: 20px; }
 
 @media (max-width: 768px) {
-  .theme-toggle { top: 12px; right: 12px; width: 38px; height: 38px; }
+  .global-controls { top: 12px; right: 12px; gap: 8px; }
+  .lang-select { height: 38px; font-size: 0.8rem; }
+  .theme-toggle { width: 38px; height: 38px; }
 }
+
+/* ===== OCR Language Selector (landing) ===== */
+.ocr-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ocr-lang-row label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ocr-lang-select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.ocr-lang-select:hover { border-color: var(--accent-red); }
 
 /* ===== Chapter Navigation ===== */
 .chapter-select {

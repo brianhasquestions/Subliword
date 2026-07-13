@@ -99,7 +99,7 @@
       "operatingSystem": "Any",
       "browserRequirements": "Requires JavaScript. Requires HTML5.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "featureList": ["RSVP Speed Reading", "PDF Document Support", "DOCX Document Support", "EPUB Document Support", "TXT File Support", "Scanned PDF OCR", "Chapter Navigation", "Adjustable Reading Speed (50-1500 WPM)", "Warm-up Ramp", "Progress Tracking", "Reading Statistics", "Dark & Light Themes", "Offline Support (PWA)", "Keyboard Shortcuts", "No Account Required", "Privacy Focused"],
+      "featureList": ["RSVP Speed Reading", "PDF Document Support", "DOCX Document Support", "EPUB Document Support", "TXT File Support", "Scanned PDF OCR", "Selectable OCR Languages", "PDF Header/Footer Cleanup", "Chapter Navigation", "Multilingual Interface", "Right-to-Left Script Support", "Adjustable Reading Speed (50-1500 WPM)", "Warm-up Ramp", "Progress Tracking", "Reading Statistics", "Dark & Light Themes", "Offline Support (PWA)", "Keyboard Shortcuts", "No Account Required", "Privacy Focused"],
       "screenshot": "https://subliword.com/images/screenshot.png",
       "softwareVersion": "1.0",
       "author": { "@type": "Organization", "name": "Subliword" }
@@ -176,11 +176,14 @@
     </defs>
   </svg>
 
-  <!-- Global Theme Toggle -->
-  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light or dark theme" title="Toggle theme">
-    <svg id="theme-icon-sun" class="hidden" aria-hidden="true"><use href="#icon-sun"></use></svg>
-    <svg id="theme-icon-moon" aria-hidden="true"><use href="#icon-moon"></use></svg>
-  </button>
+  <!-- Global Controls: language + theme -->
+  <div class="global-controls">
+    <select id="lang-select" class="lang-select" data-i18n-aria-label="language_label" aria-label="Language"></select>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light or dark theme" title="Toggle theme" data-i18n-aria-label="theme_toggle" data-i18n-title="theme_toggle">
+      <svg id="theme-icon-sun" class="hidden" aria-hidden="true"><use href="#icon-sun"></use></svg>
+      <svg id="theme-icon-moon" aria-hidden="true"><use href="#icon-moon"></use></svg>
+    </button>
+  </div>
 
   <!-- Landing Page -->
   <main id="main-content">
@@ -190,24 +193,43 @@
           <h1 class="logo fade-in" itemprop="name">
             <span>Sub</span><span class="red">l</span><span>iwor</span><span class="red">d</span>
           </h1>
-          <p class="tagline fade-in-delay" itemprop="description">Speed Reading Made Simple</p>
+          <p class="tagline fade-in-delay" itemprop="description" data-i18n="tagline">Speed Reading Made Simple</p>
         </header>
         
         <section class="upload-section fade-in-delay-2" aria-label="File Upload">
           <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-describedby="upload-instructions">
             <div class="drop-zone-content">
               <svg class="upload-icon" aria-hidden="true"><use href="#icon-upload"></use></svg>
-              <p id="upload-instructions">Drag & drop your file here</p>
-              <p class="supported-formats">PDF, DOCX, EPUB, or TXT</p>
-              <span class="or-divider">or</span>
-              <button type="button" class="browse-btn" id="browse-btn" aria-label="Browse files from your computer">Browse Files</button>
+              <p id="upload-instructions" data-i18n="drop_here">Drag & drop your file here</p>
+              <p class="supported-formats" data-i18n="supported_formats">PDF, DOCX, EPUB, or TXT</p>
+              <span class="or-divider" data-i18n="or">or</span>
+              <button type="button" class="browse-btn" id="browse-btn" aria-label="Browse files from your computer" data-i18n="browse">Browse Files</button>
               <input type="file" id="file-input" accept=".pdf,.docx,.epub,.txt" hidden aria-label="File input">
+              <div class="ocr-lang-row" id="ocr-lang-row">
+                <label for="ocr-lang" data-i18n="ocr_lang_label">Scanned PDF language</label>
+                <select id="ocr-lang" class="ocr-lang-select" aria-label="Scanned PDF OCR language">
+                  <option value="eng">English</option>
+                  <option value="spa">Español</option>
+                  <option value="fra">Français</option>
+                  <option value="deu">Deutsch</option>
+                  <option value="ita">Italiano</option>
+                  <option value="por">Português</option>
+                  <option value="nld">Nederlands</option>
+                  <option value="rus">Русский</option>
+                  <option value="ara">العربية</option>
+                  <option value="heb">עברית</option>
+                  <option value="chi_sim">中文 (简体)</option>
+                  <option value="chi_tra">中文 (繁體)</option>
+                  <option value="jpn">日本語</option>
+                  <option value="kor">한국어</option>
+                </select>
+              </div>
             </div>
           </div>
           
           <div id="loading-spinner" class="loading-spinner hidden" role="status" aria-live="polite">
             <div class="spinner" aria-hidden="true"></div>
-            <p>Processing your file...</p>
+            <p data-i18n="processing">Processing your file...</p>
           </div>
           
           <div id="error-message" class="error-message hidden" role="alert" aria-live="assertive"></div>
@@ -234,7 +256,7 @@
           <label for="progress-bar" class="visually-hidden">Reading progress</label>
           <input type="range" id="progress-bar" class="progress-bar" min="0" max="100" value="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="progress-info" aria-live="polite">
-            <span id="current-word-num">0</span> / <span id="total-words">0</span> words
+            <span id="current-word-num">0</span> / <span id="total-words">0</span> <span data-i18n="words">words</span>
           </div>
         </nav>
 
@@ -246,11 +268,11 @@
           <div class="drag-handle" aria-hidden="true"></div>
 
           <div class="sidebar-content">
-            <h2>Controls</h2>
+            <h2 data-i18n="controls">Controls</h2>
 
             <!-- Chapter Navigation (shown only when the document has chapters) -->
             <div class="control-group chapter-group hidden" id="chapter-group">
-              <label for="chapter-select">Chapter</label>
+              <label for="chapter-select" data-i18n="chapter">Chapter</label>
               <select id="chapter-select" class="chapter-select" aria-label="Jump to chapter"></select>
             </div>
 
@@ -272,20 +294,20 @@
 
             <!-- WPM Control -->
             <div class="control-group">
-              <label for="wpm-slider">Speed: <span id="wpm-display">300</span> WPM</label>
+              <label for="wpm-slider"><span data-i18n="speed">Speed</span>: <span id="wpm-display">300</span> <span data-i18n="wpm_unit">WPM</span></label>
               <input type="range" id="wpm-slider" class="wpm-slider" min="50" max="1500" value="300" step="10" aria-valuemin="50" aria-valuemax="1500" aria-valuenow="300">
             </div>
 
             <!-- Chunk Size Control -->
             <div class="control-group">
-              <label for="chunk-slider">Words per chunk: <span id="chunk-display">1</span></label>
+              <label for="chunk-slider"><span data-i18n="words_per_chunk">Words per chunk</span>: <span id="chunk-display">1</span></label>
               <input type="range" id="chunk-slider" class="chunk-slider" min="1" max="10" value="1" step="1" aria-valuemin="1" aria-valuemax="10" aria-valuenow="1">
             </div>
 
             <!-- Warm-up Toggle -->
             <div class="control-group">
               <label class="toggle-row" for="warmup-toggle">
-                <span>Warm-up ramp</span>
+                <span data-i18n="warmup">Warm-up ramp</span>
                 <input type="checkbox" id="warmup-toggle" class="toggle-input" checked>
                 <span class="toggle-switch" aria-hidden="true"></span>
               </label>
@@ -293,28 +315,28 @@
 
             <!-- Reading Stats -->
             <div class="control-group reading-stats" aria-label="Reading statistics">
-              <div class="stat-row"><span>Words read</span><span id="stat-words">0</span></div>
-              <div class="stat-row"><span>Top speed</span><span id="stat-wpm">0 WPM</span></div>
-              <div class="stat-row"><span>Time saved</span><span id="stat-saved">0s</span></div>
+              <div class="stat-row"><span data-i18n="stat_words">Words read</span><span id="stat-words">0</span></div>
+              <div class="stat-row"><span data-i18n="stat_speed">Top speed</span><span id="stat-wpm">0 WPM</span></div>
+              <div class="stat-row"><span data-i18n="stat_saved">Time saved</span><span id="stat-saved">0s</span></div>
             </div>
 
             <!-- New Document -->
             <div class="control-group">
               <button id="new-document" class="new-doc-btn" aria-label="Upload a new document">
                 <svg aria-hidden="true"><use href="#icon-new-doc"></use></svg>
-                New Document
+                <span data-i18n="new_document">New Document</span>
               </button>
             </div>
 
             <!-- Keyboard Shortcuts -->
             <section class="shortcuts-info" aria-label="Keyboard shortcuts">
-              <h3>Keyboard Shortcuts</h3>
+              <h3 data-i18n="shortcuts">Keyboard Shortcuts</h3>
               <ul>
-                <li><kbd>Space</kbd> Play/Pause</li>
-                <li><kbd>←</kbd> Previous Sentence</li>
-                <li><kbd>→</kbd> Next Sentence</li>
-                <li><kbd>↑</kbd> Increase Speed</li>
-                <li><kbd>↓</kbd> Decrease Speed</li>
+                <li><kbd>Space</kbd> <span data-i18n="sc_playpause">Play/Pause</span></li>
+                <li><kbd>←</kbd> <span data-i18n="sc_prev">Previous Sentence</span></li>
+                <li><kbd>→</kbd> <span data-i18n="sc_next">Next Sentence</span></li>
+                <li><kbd>↑</kbd> <span data-i18n="sc_faster">Increase Speed</span></li>
+                <li><kbd>↓</kbd> <span data-i18n="sc_slower">Decrease Speed</span></li>
               </ul>
             </section>
           </div>
@@ -328,8 +350,8 @@
 
   <!-- Footer Links -->
   <footer>
-    <a href="/about.html" class="global-privacy-link" style="right: 80px;">About</a>
-    <a href="/privacy.html" class="global-privacy-link">Privacy</a>
+    <a href="/about.html" class="global-privacy-link" style="right: 80px;" data-i18n="about">About</a>
+    <a href="/privacy.html" class="global-privacy-link" data-i18n="privacy">Privacy</a>
   </footer>
 
   <!-- External Libraries (Subresource Integrity pins the exact bytes we tested) -->
@@ -349,6 +371,7 @@
     crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
 
   <!-- App Scripts -->
+  <script src="js/i18n.js" defer></script>
   <script src="js/rsvp.js" defer></script>
   <script src="js/clientParser.js" defer></script>
   <script src="js/main.js" defer></script>
