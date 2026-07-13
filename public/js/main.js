@@ -88,9 +88,7 @@
       chapterGroup: document.getElementById('chapter-group'),
       chapterSelect: document.getElementById('chapter-select'),
       ocrLang: document.getElementById('ocr-lang'),
-      langSelect: document.getElementById('lang-select'),
-      sidebar: document.getElementById('sidebar'),
-      sidebarToggle: document.getElementById('sidebar-toggle')
+      langSelect: document.getElementById('lang-select')
     },
     stats: {
       words: document.getElementById('stat-words'),
@@ -314,43 +312,13 @@
   }
 
   function setupNavigation() {
-    const { newDoc, sidebarToggle } = UI.controls;
-    
-    newDoc.addEventListener('click', goToLanding);
-    
-    // Sidebar toggle with touch/click handling
-    let lastToggleTime = 0;
-    let touchHandled = false;
-    
-    const handleSidebarToggle = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      if (e.type === 'touchend') {
-        touchHandled = true;
-        toggleSidebar();
-        setTimeout(() => { touchHandled = false; }, 100);
-        return;
-      }
-      
-      if (e.type === 'click' && touchHandled) return;
-      
-      const now = Date.now();
-      if (now - lastToggleTime < 100) return;
-      lastToggleTime = now;
-      
-      toggleSidebar();
-    };
-    
-    sidebarToggle.addEventListener('touchend', handleSidebarToggle, { capture: true });
-    sidebarToggle.addEventListener('click', handleSidebarToggle, { capture: true });
+    UI.controls.newDoc.addEventListener('click', goToLanding);
   }
 
   function setupMobileTouch() {
     if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) return;
 
     const wordDisplay = document.getElementById('word-display');
-    const { sidebar, sidebarToggle } = UI.controls;
     const minSwipeDistance = 50;
 
     // Tap to play/pause on word display
@@ -383,29 +351,6 @@
       }, { passive: true });
     }
 
-    // Vertical swipe for sidebar
-    let sidebarTouchY = 0;
-    let sidebarTouchX = 0;
-
-    sidebar.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#sidebar-toggle')) return;
-      sidebarTouchY = e.changedTouches[0].screenY;
-      sidebarTouchX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    sidebar.addEventListener('touchend', (e) => {
-      if (e.target.closest('#sidebar-toggle')) return;
-      
-      const touchY = e.changedTouches[0].screenY;
-      const touchX = e.changedTouches[0].screenX;
-      const dy = sidebarTouchY - touchY;
-      const dx = Math.abs(sidebarTouchX - touchX);
-      
-      if (dx > Math.abs(dy)) return; // Horizontal swipe
-      
-      if (dy > minSwipeDistance) sidebar.classList.add('open');
-      else if (dy < -minSwipeDistance) sidebar.classList.remove('open');
-    }, { passive: true });
   }
 
   function setupKeyboardShortcuts() {
@@ -728,10 +673,6 @@
   function handleProgressChange(e) {
     const index = parseInt(e.target.value);
     reader.goTo(index);
-  }
-
-  function toggleSidebar() {
-    UI.controls.sidebar.classList.toggle('open');
   }
 
   function handleComplete() {
